@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Central Coast Food System Building Tool</title>
+    <title>Central Coast Food System Network Matcher</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
     <script src="https://js.arcgis.com/4.28/"></script>
@@ -28,7 +28,6 @@
 </head>
 <body class="bg-gradient-to-br from-green-50 to-blue-50">
     <div class="container mx-auto px-4 py-8 max-w-7xl">
-        <!-- Header -->
         <div class="text-center mb-8">
             <h1 class="text-4xl font-bold text-green-800 mb-4">
                 Central Coast Food System Network Matcher
@@ -37,30 +36,22 @@
                 Interactive map of 100 organizations across 6 Central Coast counties
             </p>
             
-            <!-- Control Buttons -->
             <div class="flex flex-wrap justify-center gap-4 mb-6">
-                <button onclick="setMapView('organizations')" id="btnOrgs" class="btn px-6 py-2 rounded-lg font-semibold bg-green-600 text-white">
-                    📍 Organizations
-                </button>
-                <button onclick="setMapView('network')" id="btnNetwork" class="btn px-6 py-2 rounded-lg font-semibold bg-white text-blue-600 border-2 border-blue-600">
-                    🔗 Network View
+                <button onclick="toggleNetworkView()" id="btnNetwork" class="btn px-6 py-2 rounded-lg font-semibold bg-blue-600 text-white">
+                    Toggle Network View
                 </button>
                 <button onclick="exportOrganizations()" class="btn px-6 py-2 rounded-lg font-semibold bg-purple-600 text-white">
-                    ⬇️ Export Orgs
+                    Export Organizations
                 </button>
                 <button onclick="exportMatches()" class="btn px-6 py-2 rounded-lg font-semibold bg-indigo-600 text-white">
-                    ⬇️ Export Matches
+                    Export Matches
                 </button>
-
             </div>
         </div>
 
-        <!-- Main Content -->
         <div id="mainView">
-            <!-- Map View -->
             <div id="mapDiv" class="w-full rounded-lg shadow-lg border-4 border-white mb-6"></div>
             
-            <!-- Legend -->
             <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
                 <h3 class="font-bold text-lg mb-4">Organization Types</h3>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
@@ -95,7 +86,6 @@
                 </div>
             </div>
 
-            <!-- Stats -->
             <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
                 <h3 class="font-bold text-lg mb-4">Quick Stats</h3>
                 <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -114,40 +104,38 @@
                 </div>
             </div>
 
-            <!-- GitHub Instructions -->
             <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
-                <h4 class="font-bold text-blue-900 mb-2">GitHub Repository Info</h4>
+                <h4 class="font-bold text-blue-900 mb-2">GitHub Repository</h4>
                 <div class="text-sm text-blue-800 space-y-2">
-                    <p><strong>Repository:</strong> <code class="bg-blue-100 px-2 py-1 rounded">pluricalifornia/cc-food-system-building-tool</code></p>
-                    <p><strong>Live Site:</strong> <code class="bg-blue-100 px-2 py-1 rounded">https://pluricalifornia.github.io/cc-food-system-building-tool</code></p>
-                    <p><strong>County Data:</strong> Automatically loaded from <code class="bg-blue-100 px-2 py-1 rounded">data/CA_COUNTIES.json</code></p>
-                    <p class="text-green-700 font-semibold mt-3">County boundaries will load automatically when hosted on GitHub Pages</p>
+                    <p><strong>Repository:</strong> pluricalifornia/cc-food-system-building-tool</p>
+                    <p><strong>Live Site:</strong> https://pluricalifornia.github.io/cc-food-system-building-tool</p>
+                    <p><strong>County Data:</strong> Loaded from data/CA_COUNTIES.json</p>
                 </div>
             </div>
         </div>
 
-        <!-- Match Details View (hidden by default) -->
         <div id="matchView" class="hidden">
             <button onclick="showMapView()" class="text-green-600 hover:text-green-800 font-semibold flex items-center gap-2 mb-6 text-lg">
-                ← Back to Map
+                Back to Map
             </button>
             <div id="matchContent"></div>
         </div>
     </div>
 
     <script>
-        // Global variables - DECLARE ALL AT TOP
-        let organizations = [];
-        let view = null;
-        let orgLayer = null;
-        let networkLayer = null;
-        let boundaryLayer = null;
-        let currentMapView = 'organizations';
-        let selectedOrg = null;
-        let countyBoundaries = {}; // Store actual county boundary coordinates
-        let organizationPositions = {}; // Store consistent positions
+        let appState = {
+            organizations: [],
+            countyBoundaries: {},
+            view: null,
+            layers: {
+                boundary: null,
+                network: null,
+                org: null
+            },
+            showNetwork: false,
+            selectedOrg: null
+        };
 
-        // County locations with bounds
         const countyLocations = {
             "Monterey County": { lat: 36.4, lng: -121.3, bounds: { minLat: 35.8, maxLat: 37.0, minLng: -122.0, maxLng: -120.2 } },
             "Santa Cruz County": { lat: 37.0, lng: -122.0, bounds: { minLat: 36.8, maxLat: 37.3, minLng: -122.3, maxLng: -121.6 } },
@@ -167,44 +155,15 @@
             "For-profit Service Provider": [64, 224, 208]
         };
 
-        // UTILITY FUNCTIONS - DEFINE BEFORE USE
+        const countyColors = {
+            'Monterey': '#2E86AB',
+            'Santa Cruz': '#A23B72',
+            'Santa Barbara': '#F18F01',
+            'San Benito': '#C73E1D',
+            'Ventura': '#5D737E',
+            'San Luis Obispo': '#7A4F9A'
+        };
 
-        // Point-in-polygon test using ray casting algorithm
-        function isPointInPolygon(point, polygon) {
-            const [x, y] = point;
-            let inside = false;
-            
-            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-                const [xi, yi] = polygon[i];
-                const [xj, yj] = polygon[j];
-                
-                if (((yi > y) !== (yj > y)) && 
-                    (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
-                    inside = !inside;
-                }
-            }
-            
-            return inside;
-        }
-
-        // Convert Web Mercator to WGS84
-        function webMercatorToWGS84(x, y) {
-            const lng = x / 111320.0;
-            const lat = (180.0 / Math.PI) * (2.0 * Math.atan(Math.exp(y * Math.PI / 20037508.34)) - Math.PI / 2.0);
-            return [lng, lat];
-        }
-
-        // Calculate polygon area
-        function calculatePolygonArea(ring) {
-            let area = 0;
-            const n = ring.length - 1;
-            for (let i = 0; i < n; i++) {
-                area += (ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]);
-            }
-            return Math.abs(area) / 2;
-        }
-
-        // Convert hex to RGB
         function hexToRgb(hex) {
             const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
             return result ? [
@@ -214,47 +173,22 @@
             ] : [200, 200, 200];
         }
 
-        // Store boundary coordinates
-        function storeBoundaryCoordinates(countyName, geometry) {
-            let coordinates = [];
-            
-            if (geometry.type === 'Polygon') {
-                coordinates = geometry.coordinates[0].map(coord => {
-                    if (Math.abs(coord[0]) > 180) {
-                        return webMercatorToWGS84(coord[0], coord[1]);
-                    }
-                    return [coord[0], coord[1]];
-                });
-            } else if (geometry.type === 'MultiPolygon') {
-                let largestArea = 0;
-                let largestRing = null;
-                
-                geometry.coordinates.forEach(polygon => {
-                    const ring = polygon[0];
-                    const area = calculatePolygonArea(ring);
-                    if (area > largestArea) {
-                        largestArea = area;
-                        largestRing = ring;
-                    }
-                });
-                
-                coordinates = (largestRing || geometry.coordinates[0][0]).map(coord => {
-                    if (Math.abs(coord[0]) > 180) {
-                        return webMercatorToWGS84(coord[0], coord[1]);
-                    }
-                    return [coord[0], coord[1]];
-                });
+        function isPointInPolygon(point, polygon) {
+            const [x, y] = point;
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const [xi, yi] = polygon[i];
+                const [xj, yj] = polygon[j];
+                if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+                    inside = !inside;
+                }
             }
-            
-            countyBoundaries[countyName] = coordinates;
-            console.log(`Stored ${coordinates.length} boundary points for ${countyName}`);
+            return inside;
         }
 
-        // Generate unique location with point-in-polygon testing
-        function generateUniqueLocation(county, existingLocations, minDistance = 0.05) {
-            const boundary = countyBoundaries[county];
+        function generateLocation(county) {
+            const boundary = appState.countyBoundaries[county];
             
-            // If we have actual boundary data, use point-in-polygon testing
             if (boundary && boundary.length > 0) {
                 let minLng = Infinity, maxLng = -Infinity;
                 let minLat = Infinity, maxLat = -Infinity;
@@ -266,178 +200,69 @@
                     maxLat = Math.max(maxLat, coord[1]);
                 });
                 
-                let attempts = 0;
-                let point;
-                
-                do {
-                    point = [
+                for (let i = 0; i < 100; i++) {
+                    const point = [
                         minLng + Math.random() * (maxLng - minLng),
                         minLat + Math.random() * (maxLat - minLat)
                     ];
-                    attempts++;
-                    
                     if (isPointInPolygon(point, boundary)) {
-                        const tooClose = existingLocations.some(existing => {
-                            const distance = Math.sqrt(
-                                Math.pow(existing.lat - point[1], 2) + Math.pow(existing.lng - point[0], 2)
-                            );
-                            return distance < minDistance;
-                        });
-                        
-                        if (!tooClose) {
-                            return { lat: point[1], lng: point[0] };
-                        }
+                        return { lat: point[1], lng: point[0] };
                     }
-                    
-                } while (attempts < 500);
-                
-                console.warn(`Could not find valid point in ${county} after 500 attempts`);
-            }
-            
-            // Fallback to bounding box method
-            const bounds = countyLocations[county]?.bounds;
-            if (!bounds) {
-                return { lat: 35.5, lng: -120.5 };
-            }
-            
-            let attempts = 0;
-            while (attempts < 100) {
-                const lat = bounds.minLat + Math.random() * (bounds.maxLat - bounds.minLat);
-                const lng = bounds.minLng + Math.random() * (bounds.maxLng - bounds.minLng);
-                
-                const tooClose = existingLocations.some(existing => {
-                    const distance = Math.sqrt(
-                        Math.pow(existing.lat - lat, 2) + Math.pow(existing.lng - lng, 2)
-                    );
-                    return distance < minDistance;
-                });
-                
-                if (!tooClose) {
-                    return { lat, lng };
                 }
-                attempts++;
             }
             
+            const bounds = countyLocations[county]?.bounds || { minLat: 35, maxLat: 36, minLng: -121, maxLng: -120 };
             return {
                 lat: bounds.minLat + Math.random() * (bounds.maxLat - bounds.minLat),
                 lng: bounds.minLng + Math.random() * (bounds.maxLng - bounds.minLng)
             };
         }
 
-        // Generate organizations
         function generateOrganizations() {
             const orgTypes = [
-                "Farmer/Fisher/Food Producer",
-                "Food Processor",
-                "Distributor",
-                "Nonprofit Organization",
-                "Educational Institution",
-                "Cooperative",
+                "Farmer/Fisher/Food Producer", "Food Processor", "Distributor",
+                "Nonprofit Organization", "Educational Institution", "Cooperative",
                 "For-profit Service Provider"
             ];
-
             const counties = Object.keys(countyLocations);
-            
             const needsPool = [
-                "Cold storage facility access",
-                "Marketing and brand development",
-                "Grant writing and fundraising",
-                "Transportation and delivery services",
-                "Business planning and strategy",
-                "Processing and packaging capabilities",
-                "Food safety certification",
-                "Technology integration",
-                "Access to capital/loan assistance",
-                "Distribution and logistics planning",
-                "E-commerce platform development",
-                "Buyer relationship development",
-                "Institutional sales",
-                "Equipment sharing programs"
+                "Cold storage facility access", "Marketing and brand development",
+                "Grant writing and fundraising", "Transportation and delivery services",
+                "Business planning and strategy", "Processing and packaging capabilities",
+                "Food safety certification", "Technology integration",
+                "Access to capital/loan assistance", "Distribution and logistics planning"
             ];
-
             const resourcesPool = [
-                "Production planning and crop scheduling",
-                "Sustainable farming practices",
-                "Cold storage facility access",
-                "Transportation and delivery services",
-                "Marketing and brand development",
-                "Grant writing and fundraising",
-                "Business planning and strategy",
-                "Processing and packaging capabilities",
-                "Food safety certification",
-                "Distribution and logistics planning",
-                "Quality control and grading",
-                "Partnership development",
-                "Cooperative formation"
+                "Production planning and crop scheduling", "Sustainable farming practices",
+                "Cold storage facility access", "Transportation and delivery services",
+                "Marketing and brand development", "Grant writing and fundraising",
+                "Business planning and strategy", "Processing and packaging capabilities"
             ];
+            const orgNames = ["Valley", "Coast", "Pacific", "Central", "Regional", "Community"];
+            const orgSuffixes = ["Farm", "Co-op", "Processors", "Hub", "Distributors", "Services"];
 
-            const infrastructurePool = [
-                "Cold storage space",
-                "Freezer space",
-                "Dry storage/warehouse",
-                "Land sharing",
-                "Processing equipment",
-                "Packaging equipment",
-                "Washing equipment",
-                "Loading docks",
-                "Refrigerated vehicles",
-                "Office space",
-                "Kitchen facilities"
-            ];
-
-            const orgNames = [
-                "Valley", "Coast", "Pacific", "Central", "Regional", "Community",
-                "Sustainable", "Organic", "Fresh", "Local", "Heritage", "Coastal"
-            ];
-            
-            const orgSuffixes = [
-                "Farm", "Co-op", "Processors", "Hub", "Distributors", "Services",
-                "Network", "Alliance", "Collective", "Growers", "Foods", "Partners"
-            ];
-
-            const existingLocations = [];
             const orgs = [];
-
             for (let i = 0; i < 100; i++) {
                 const county = counties[Math.floor(Math.random() * counties.length)];
-                const location = generateUniqueLocation(county, existingLocations);
-                existingLocations.push(location);
-
-                const numNeeds = 3 + Math.floor(Math.random() * 4);
+                const location = generateLocation(county);
+                
                 const selectedNeeds = {};
                 const shuffledNeeds = [...needsPool].sort(() => Math.random() - 0.5);
-                const levels = ["High", "High", "Moderate", "Moderate", "Low"];
-                
-                for (let j = 0; j < numNeeds; j++) {
-                    selectedNeeds[shuffledNeeds[j]] = levels[Math.floor(Math.random() * levels.length)];
+                for (let j = 0; j < 3; j++) {
+                    selectedNeeds[shuffledNeeds[j]] = ["High", "Moderate", "Low"][Math.floor(Math.random() * 3)];
                 }
 
-                const numResources = 2 + Math.floor(Math.random() * 4);
                 const selectedResources = {};
                 const shuffledResources = [...resourcesPool].sort(() => Math.random() - 0.5);
-                const resourceLevels = ["Extensive", "Extensive", "Some", "Some"];
-                
-                for (let j = 0; j < numResources; j++) {
-                    selectedResources[shuffledResources[j]] = resourceLevels[Math.floor(Math.random() * resourceLevels.length)];
+                for (let j = 0; j < 3; j++) {
+                    selectedResources[shuffledResources[j]] = ["Extensive", "Some"][Math.floor(Math.random() * 2)];
                 }
 
-                const numInfra = Math.floor(Math.random() * 4);
-                const selectedInfra = [];
-                const shuffledInfra = [...infrastructurePool].sort(() => Math.random() - 0.5);
-                for (let j = 0; j < numInfra; j++) {
-                    selectedInfra.push(shuffledInfra[j]);
-                }
-
-                const topNeedsKeys = Object.entries(selectedNeeds)
+                const topNeeds = Object.entries(selectedNeeds)
                     .filter(([_, level]) => level === "High" || level === "Moderate")
-                    .sort((a, b) => (a[1] === "High" ? -1 : 1))
-                    .slice(0, 3)
-                    .map(([key, _]) => key);
-
-                const topResourcesKeys = Object.entries(selectedResources)
-                    .sort((a, b) => (a[1] === "Extensive" ? -1 : 1))
-                    .slice(0, 3)
-                    .map(([key, _]) => key);
+                    .slice(0, 3).map(([key, _]) => key);
+                const topResources = Object.entries(selectedResources)
+                    .slice(0, 3).map(([key, _]) => key);
 
                 orgs.push({
                     id: i + 1,
@@ -446,28 +271,22 @@
                     county: county,
                     lat: location.lat,
                     lng: location.lng,
-                    deliveryRadius: 20 + Math.floor(Math.random() * 80),
                     needs: selectedNeeds,
                     resources: selectedResources,
-                    infrastructure: selectedInfra,
-                    topNeeds: topNeedsKeys,
-                    topResources: topResourcesKeys
+                    topNeeds: topNeeds,
+                    topResources: topResources
                 });
             }
-
             return orgs;
         }
 
-        // Calculate match score
         function calculateMatch(org1, org2) {
             let score = 0;
             let matches = [];
-
             Object.keys(org1.needs).forEach(need => {
                 if (org2.resources[need] && (org1.needs[need] === "High" || org1.needs[need] === "Moderate")) {
                     const weight = org1.needs[need] === "High" ? 3 : 2;
-                    const resourceLevel = org2.resources[need] === "Extensive" ? 3 : 
-                                         org2.resources[need] === "Some" ? 2 : 1;
+                    const resourceLevel = org2.resources[need] === "Extensive" ? 3 : 2;
                     score += weight * resourceLevel;
                     matches.push({
                         type: "need-resource",
@@ -477,488 +296,182 @@
                     });
                 }
             });
-
-            Object.keys(org2.needs).forEach(need => {
-                if (org1.resources[need] && (org2.needs[need] === "High" || org2.needs[need] === "Moderate")) {
-                    const weight = org2.needs[need] === "High" ? 3 : 2;
-                    const resourceLevel = org1.resources[need] === "Extensive" ? 3 : 
-                                         org1.resources[need] === "Some" ? 2 : 1;
-                    score += weight * resourceLevel;
-                    matches.push({
-                        type: "resource-need",
-                        item: need,
-                        needLevel: org2.needs[need],
-                        resourceLevel: org1.resources[need]
-                    });
-                }
-            });
-
-            if (org1.county === org2.county) {
-                score += 5;
-            }
-
+            if (org1.county === org2.county) score += 5;
             return { score, matches };
         }
 
-        // Get matches for organization
         function getMatches(orgId) {
-            const org = organizations.find(o => o.id === orgId);
-            const matches = organizations
+            const org = appState.organizations.find(o => o.id === orgId);
+            return appState.organizations
                 .filter(o => o.id !== orgId)
-                .map(o => ({
-                    org: o,
-                    matchData: calculateMatch(org, o)
-                }))
+                .map(o => ({ org: o, matchData: calculateMatch(org, o) }))
                 .filter(m => m.matchData.score > 0)
                 .sort((a, b) => b.matchData.score - a.matchData.score);
-            
-            return matches;
         }
 
-        // Update county coordinates from GeoJSON
-        function updateCountyCoordinates(countiesData) {
-            const centralCoastCounties = ['Monterey', 'Santa Cruz', 'Santa Barbara', 'San Benito', 'Ventura', 'San Luis Obispo'];
-            
-            countiesData.features.forEach(feature => {
-                const countyName = feature.properties.NAME;
-                
-                if (centralCoastCounties.includes(countyName)) {
-                    const lat = parseFloat(feature.properties.INTPTLAT);
-                    const lng = parseFloat(feature.properties.INTPTLON);
-                    
-                    if (!isNaN(lat) && !isNaN(lng)) {
-                        const countyKey = countyName + " County";
-                        if (countyLocations[countyKey]) {
-                            countyLocations[countyKey].lat = lat;
-                            countyLocations[countyKey].lng = lng;
-                            console.log('Updated coordinates for', countyKey);
-                        }
-                    }
-                }
-            });
-        }
-
-        // Load county boundaries from GitHub
-        async function loadCountyBoundaries() {
-            const boundariesUrl = 'https://raw.githubusercontent.com/pluricalifornia/cc-food-system-building-tool/main/data/CA_COUNTIES.json';
-            
-            try {
-                const response = await fetch(boundariesUrl);
-                if (!response.ok) {
-                    console.warn('Could not load county boundaries from GitHub');
-                    return false;
-                }
-                const json = await response.json();
-                
-                if (json) {
-                    await loadBoundariesOnMap(json);
-                    updateCountyCoordinates(json);
-                    return true;
-                }
-            } catch (error) {
-                console.warn('Error loading county boundaries:', error);
-                return false;
-            }
-        }
-
-        // Load boundaries onto the map
-        function loadBoundariesOnMap(json) {
-            return new Promise((resolve) => {
-                require([
-                    "esri/Graphic",
-                    "esri/symbols/SimpleFillSymbol",
-                    "esri/geometry/Polygon"
-                ], function(Graphic, SimpleFillSymbol, Polygon) {
-                    
-                    const countyColors = {
-                        'Monterey': '#2E86AB',
-                        'Santa Cruz': '#A23B72',
-                        'Santa Barbara': '#F18F01',
-                        'San Benito': '#C73E1D',
-                        'Ventura': '#5D737E',
-                        'San Luis Obispo': '#7A4F9A'
-                    };
-                    
-                    const centralCoastCounties = ['Monterey', 'Santa Cruz', 'Santa Barbara', 'San Benito', 'Ventura', 'San Luis Obispo'];
-                    
-                    if (json.type === "FeatureCollection") {
-                        json.features.forEach((feature, index) => {
-                            const countyName = feature.properties.NAME;
-                            
-                            if (centralCoastCounties.includes(countyName)) {
-                                console.log('Processing county boundary:', countyName);
-                                
-                                storeBoundaryCoordinates(countyName, feature.geometry);
-                                
-                                try {
-                                    let geometry;
-                                    if (feature.geometry.type === 'Polygon') {
-                                        geometry = new Polygon({
-                                            rings: feature.geometry.coordinates,
-                                            spatialReference: { wkid: 4326 }
-                                        });
-                                    } else if (feature.geometry.type === 'MultiPolygon') {
-                                        geometry = new Polygon({
-                                            rings: feature.geometry.coordinates[0],
-                                            spatialReference: { wkid: 4326 }
-                                        });
-                                    }
-                                    
-                                    if (geometry) {
-                                        const color = hexToRgb(countyColors[countyName] || '#cccccc');
-                                        const graphic = new Graphic({
-                                            geometry: geometry,
-                                            attributes: {
-                                                OBJECTID: index + 1,
-                                                NAME: countyName,
-                                                COUNTY: countyName
-                                            },
-                                            symbol: new SimpleFillSymbol({
-                                                color: [...color, 0.2],
-                                                outline: {
-                                                    color: [...color, 0.8],
-                                                    width: 2
-                                                }
-                                            }),
-                                            popupTemplate: {
-                                                title: "{NAME} County",
-                                                content: "Central Coast County"
-                                            }
-                                        });
-                                        
-                                        boundaryLayer.add(graphic);
-                                        console.log(`Added boundary for ${countyName}`);
-                                    }
-                                } catch (geomError) {
-                                    console.error('Error processing geometry for', countyName, geomError);
-                                }
-                            }
-                        });
-                        
-                        console.log('County boundaries loaded successfully');
-                    }
-                    resolve();
-                });
-            });
-        }
-
-        // Initialize map
-        async function initializeMap() {
+        function initMap() {
             require([
-                "esri/Map",
-                "esri/views/MapView",
-                "esri/Graphic",
-                "esri/layers/GraphicsLayer",
-                "esri/geometry/Point",
-                "esri/geometry/Polyline",
-                "esri/symbols/SimpleMarkerSymbol",
-                "esri/symbols/SimpleLineSymbol",
-                "esri/PopupTemplate"
-            ], async function(Map, MapView, Graphic, GraphicsLayer, Point, Polyline, SimpleMarkerSymbol, SimpleLineSymbol, PopupTemplate) {
+                "esri/Map", "esri/views/MapView", "esri/Graphic", "esri/layers/GraphicsLayer",
+                "esri/geometry/Point", "esri/geometry/Polyline", "esri/geometry/Polygon",
+                "esri/symbols/SimpleMarkerSymbol", "esri/symbols/SimpleLineSymbol",
+                "esri/symbols/SimpleFillSymbol", "esri/PopupTemplate"
+            ], function(Map, MapView, Graphic, GraphicsLayer, Point, Polyline, Polygon,
+                       SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, PopupTemplate) {
                 
-                console.log('Creating map...');
-                const map = new Map({
-                    basemap: "streets-navigation-vector"
-                });
-
-                console.log('Creating map view...');
-                view = new MapView({
+                const map = new Map({ basemap: "streets-navigation-vector" });
+                appState.view = new MapView({
                     container: "mapDiv",
                     map: map,
                     center: [-121.0, 35.5],
                     zoom: 7
                 });
 
-                console.log('Creating layers...');
-                orgLayer = new GraphicsLayer();
-                networkLayer = new GraphicsLayer();
-                boundaryLayer = new GraphicsLayer();
+                appState.layers.boundary = new GraphicsLayer();
+                appState.layers.network = new GraphicsLayer();
+                appState.layers.org = new GraphicsLayer();
                 
-                map.add(boundaryLayer);
-                map.add(networkLayer);
-                map.add(orgLayer);
+                map.add(appState.layers.boundary);
+                map.add(appState.layers.network);
+                map.add(appState.layers.org);
 
-                console.log('Waiting for view to be ready...');
-                await view.when();
-                console.log('View is ready!');
-                
-                // Load county boundaries first
-                console.log('Loading county boundaries...');
-                await loadCountyBoundaries();
-                console.log('Boundaries loaded!');
-                
-                // Generate organizations after boundaries are loaded
-                console.log('Generating organizations...');
-                organizations = generateOrganizations();
-                console.log(`Generated ${organizations.length} organizations`);
-                
-                // Add organization markers
-                console.log('Adding organization markers...');
-                organizations.forEach(org => {
-                    const point = new Point({
-                        longitude: org.lng,
-                        latitude: org.lat
-                    });
-
-                    const markerSymbol = new SimpleMarkerSymbol({
-                        color: typeColors[org.type] || [128, 128, 128],
-                        size: "10px",
-                        outline: {
-                            color: [255, 255, 255],
-                            width: 2
-                        }
-                    });
-
-                    const popupTemplate = new PopupTemplate({
-                        title: org.name,
-                        content: `
-                            <b>Type:</b> ${org.type}<br>
-                            <b>County:</b> ${org.county}<br>
-                            <b>Top Needs:</b><br>
-                            ${org.topNeeds.map(n => `• ${n}`).join('<br>')}<br>
-                            <b>Top Resources:</b><br>
-                            ${org.topResources.map(r => `• ${r}`).join('<br>')}
-                        `
-                    });
-
-                    const graphic = new Graphic({
-                        geometry: point,
-                        symbol: markerSymbol,
-                        attributes: org,
-                        popupTemplate: popupTemplate
-                    });
-
-                    orgLayer.add(graphic);
+                appState.view.when(() => {
+                    fetch('https://raw.githubusercontent.com/pluricalifornia/cc-food-system-building-tool/main/data/CA_COUNTIES.json')
+                        .then(r => r.json())
+                        .then(data => {
+                            const central = ['Monterey', 'Santa Cruz', 'Santa Barbara', 'San Benito', 'Ventura', 'San Luis Obispo'];
+                            data.features.forEach((f, i) => {
+                                const name = f.properties.NAME;
+                                if (!central.includes(name)) return;
+                                
+                                const coords = f.geometry.type === 'Polygon' ? 
+                                    f.geometry.coordinates[0] : f.geometry.coordinates[0][0];
+                                appState.countyBoundaries[name] = coords.map(c => [c[0], c[1]]);
+                                
+                                const geom = new Polygon({
+                                    rings: f.geometry.type === 'Polygon' ? f.geometry.coordinates : f.geometry.coordinates[0],
+                                    spatialReference: { wkid: 4326 }
+                                });
+                                const color = hexToRgb(countyColors[name] || '#cccccc');
+                                appState.layers.boundary.add(new Graphic({
+                                    geometry: geom,
+                                    symbol: new SimpleFillSymbol({
+                                        color: [...color, 0.2],
+                                        outline: { color: [...color, 0.8], width: 2 }
+                                    })
+                                }));
+                            });
+                            
+                            appState.organizations = generateOrganizations();
+                            
+                            appState.organizations.forEach(org => {
+                                appState.layers.org.add(new Graphic({
+                                    geometry: new Point({ longitude: org.lng, latitude: org.lat }),
+                                    symbol: new SimpleMarkerSymbol({
+                                        color: typeColors[org.type] || [128, 128, 128],
+                                        size: "10px",
+                                        outline: { color: [255, 255, 255], width: 2 }
+                                    }),
+                                    attributes: org,
+                                    popupTemplate: new PopupTemplate({
+                                        title: org.name,
+                                        content: `<b>Type:</b> ${org.type}<br><b>County:</b> ${org.county}<br><b>Top Needs:</b><br>${org.topNeeds.map(n => `• ${n}`).join('<br>')}`
+                                    })
+                                }));
+                            });
+                            
+                            let total = 0;
+                            appState.organizations.forEach(org => { total += getMatches(org.id).length; });
+                            document.getElementById('totalMatches').textContent = total;
+                            
+                            appState.view.on("click", e => {
+                                appState.view.hitTest(e).then(r => {
+                                    if (r.results.length > 0 && r.results[0].graphic.attributes?.id) {
+                                        showOrgMatches(r.results[0].graphic.attributes);
+                                    }
+                                });
+                            });
+                        });
                 });
-                console.log('Markers added!');
-
-                view.on("click", function(event) {
-                    view.hitTest(event).then(function(response) {
-                        if (response.results.length > 0) {
-                            const graphic = response.results[0].graphic;
-                            if (graphic.attributes && graphic.attributes.id) {
-                                showOrgMatches(graphic.attributes);
-                            }
-                        }
-                    });
-                });
-
-                // Calculate total matches
-                let totalMatches = 0;
-                organizations.forEach(org => {
-                    totalMatches += getMatches(org.id).length;
-                });
-                document.getElementById('totalMatches').textContent = totalMatches;
-                
-                console.log('Map initialization complete!');
             });
         }
 
-        // Set map view
-        function setMapView(viewType) {
-            currentMapView = viewType;
+        function toggleNetworkView() {
+            appState.showNetwork = !appState.showNetwork;
+            if (!appState.layers.network) return;
             
-            if (viewType === 'organizations') {
-                document.getElementById('btnOrgs').className = 'btn px-6 py-2 rounded-lg font-semibold bg-green-600 text-white';
-                document.getElementById('btnNetwork').className = 'btn px-6 py-2 rounded-lg font-semibold bg-white text-blue-600 border-2 border-blue-600';
-                if (networkLayer) networkLayer.removeAll();
-            } else {
-                document.getElementById('btnOrgs').className = 'btn px-6 py-2 rounded-lg font-semibold bg-white text-green-600 border-2 border-green-600';
-                document.getElementById('btnNetwork').className = 'btn px-6 py-2 rounded-lg font-semibold bg-blue-600 text-white';
-                updateNetworkView();
+            appState.layers.network.removeAll();
+            if (appState.showNetwork) {
+                require(["esri/Graphic", "esri/geometry/Polyline", "esri/symbols/SimpleLineSymbol"],
+                    function(Graphic, Polyline, SimpleLineSymbol) {
+                        appState.organizations.forEach(org => {
+                            getMatches(org.id).slice(0, 3).forEach(m => {
+                                appState.layers.network.add(new Graphic({
+                                    geometry: new Polyline({ paths: [[org.lng, org.lat], [m.org.lng, m.org.lat]] }),
+                                    symbol: new SimpleLineSymbol({ color: [100, 200, 255, 0.3], width: 2 })
+                                }));
+                            });
+                        });
+                    });
             }
         }
 
-        // Update network view
-        function updateNetworkView() {
-            require([
-                "esri/Graphic",
-                "esri/geometry/Polyline",
-                "esri/symbols/SimpleLineSymbol"
-            ], function(Graphic, Polyline, SimpleLineSymbol) {
-                networkLayer.removeAll();
-                
-                organizations.forEach(org => {
-                    const matches = getMatches(org.id).slice(0, 3);
-                    
-                    matches.forEach(match => {
-                        const line = new Polyline({
-                            paths: [
-                                [org.lng, org.lat],
-                                [match.org.lng, match.org.lat]
-                            ]
-                        });
-
-                        const lineSymbol = new SimpleLineSymbol({
-                            color: [100, 200, 255, 0.3],
-                            width: Math.min(match.matchData.score / 10, 3)
-                        });
-
-                        const lineGraphic = new Graphic({
-                            geometry: line,
-                            symbol: lineSymbol
-                        });
-
-                        networkLayer.add(lineGraphic);
-                    });
-                });
-            });
-        }
-
-        // Show organization matches
         function showOrgMatches(org) {
-            selectedOrg = org;
-            const matches = getMatches(org.id);
-            
             document.getElementById('mainView').classList.add('hidden');
             document.getElementById('matchView').classList.remove('hidden');
-            
-            let html = `
-                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-2">${org.name}</h2>
-                    <p class="text-gray-600 mb-4">${org.type} • ${org.county}</p>
-                    
-                    <div class="grid md:grid-cols-2 gap-6">
-                        <div>
-                            <h3 class="font-semibold text-gray-700 mb-3">Current Needs</h3>
-                            <ul class="space-y-2 text-sm">
-                                ${org.topNeeds.map(need => `<li class="bg-orange-50 px-3 py-2 rounded">${need}</li>`).join('')}
-                            </ul>
-                        </div>
-                        <div>
-                            <h3 class="font-semibold text-gray-700 mb-3">Available Resources</h3>
-                            <ul class="space-y-2 text-sm">
-                                ${org.topResources.map(resource => `<li class="bg-green-50 px-3 py-2 rounded">${resource}</li>`).join('')}
-                            </ul>
-                        </div>
+            const matches = getMatches(org.id);
+            let html = `<div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h2 class="text-2xl font-bold mb-2">${org.name}</h2>
+                <p class="text-gray-600 mb-4">${org.type} • ${org.county}</p>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div><h3 class="font-semibold mb-3">Current Needs</h3>
+                        ${org.topNeeds.map(n => `<div class="bg-orange-50 px-3 py-2 rounded mb-2">${n}</div>`).join('')}
                     </div>
-                </div>
-                
-                <h3 class="text-2xl font-bold text-gray-800 mb-4">Top ${Math.min(matches.length, 5)} Partnership Matches</h3>
-                
-                <div class="space-y-4">
-            `;
-            
-            matches.slice(0, 5).forEach(({ org: matchOrg, matchData }) => {
-                html += `
-                    <div class="bg-white rounded-lg shadow-lg p-6">
-                        <div class="flex items-start justify-between mb-4">
-                            <div>
-                                <h4 class="text-xl font-bold text-gray-800">${matchOrg.name}</h4>
-                                <p class="text-sm text-gray-600">${matchOrg.type} • ${matchOrg.county}</p>
-                            </div>
-                            <div class="text-right">
-                                <div class="bg-green-100 text-green-800 px-4 py-2 rounded-lg font-bold text-lg">
-                                    ${matchData.score} pts
-                                </div>
-                                <p class="text-xs text-gray-500 mt-1">Match Score</p>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-gray-50 rounded-lg p-4">
-                            <h5 class="font-semibold text-gray-700 mb-3">Collaboration Opportunities:</h5>
-                            <div class="space-y-2">
-                `;
-                
-                matchData.matches.slice(0, 3).forEach(match => {
-                    if (match.type === "need-resource") {
-                        html += `
-                            <div class="flex items-start gap-3 text-sm">
-                                <div class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-semibold flex-shrink-0">
-                                    YOU NEED
-                                </div>
-                                <div class="flex-1">
-                                    <span class="font-medium">${match.item}</span>
-                                    <span class="text-gray-500"> — ${matchOrg.name} provides </span>
-                                    <span class="text-green-600 font-semibold">${match.resourceLevel}</span>
-                                    <span class="text-gray-500"> support</span>
-                                </div>
-                            </div>
-                        `;
-                    } else {
-                        html += `
-                            <div class="flex items-start gap-3 text-sm">
-                                <div class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-semibold flex-shrink-0">
-                                    YOU PROVIDE
-                                </div>
-                                <div class="flex-1">
-                                    <span class="font-medium">${match.item}</span>
-                                    <span class="text-gray-500"> — ${matchOrg.name} needs </span>
-                                    <span class="text-orange-600 font-semibold">${match.needLevel}</span>
-                                    <span class="text-gray-500"> support</span>
-                                </div>
-                            </div>
-                        `;
-                    }
-                });
-                
-                html += `
-                            </div>
-                        </div>
+                    <div><h3 class="font-semibold mb-3">Available Resources</h3>
+                        ${org.topResources.map(r => `<div class="bg-green-50 px-3 py-2 rounded mb-2">${r}</div>`).join('')}
                     </div>
-                `;
+                </div></div>
+                <h3 class="text-2xl font-bold mb-4">Top Matches</h3><div class="space-y-4">`;
+            matches.slice(0, 5).forEach(({org: m, matchData}) => {
+                html += `<div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="flex justify-between mb-4">
+                        <div><h4 class="text-xl font-bold">${m.name}</h4>
+                        <p class="text-sm text-gray-600">${m.type} • ${m.county}</p></div>
+                        <div class="bg-green-100 text-green-800 px-4 py-2 rounded-lg font-bold">${matchData.score} pts</div>
+                    </div></div>`;
             });
-            
             html += '</div>';
             document.getElementById('matchContent').innerHTML = html;
         }
 
-        // Show map view
         function showMapView() {
             document.getElementById('mainView').classList.remove('hidden');
             document.getElementById('matchView').classList.add('hidden');
         }
 
-        // Export organizations
         function exportOrganizations() {
-            const dataStr = JSON.stringify(organizations, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'food-system-organizations.json';
-            link.click();
-            URL.revokeObjectURL(url);
+            const blob = new Blob([JSON.stringify(appState.organizations, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'food-system-organizations.json';
+            a.click();
         }
 
-        // Export matches
         function exportMatches() {
-            const allMatches = organizations.map(org => ({
-                organization: {
-                    id: org.id,
-                    name: org.name,
-                    type: org.type,
-                    county: org.county
-                },
+            const matches = appState.organizations.map(org => ({
+                organization: { id: org.id, name: org.name, type: org.type, county: org.county },
                 topMatches: getMatches(org.id).slice(0, 10).map(m => ({
-                    matchedOrg: {
-                        id: m.org.id,
-                        name: m.org.name,
-                        type: m.org.type,
-                        county: m.org.county
-                    },
-                    matchScore: m.matchData.score,
-                    opportunities: m.matchData.matches.slice(0, 5)
+                    matchedOrg: { id: m.org.id, name: m.org.name },
+                    matchScore: m.matchData.score
                 }))
             }));
-
-            const dataStr = JSON.stringify(allMatches, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = 'food-system-matches.json';
-            link.click();
-            URL.revokeObjectURL(url);
+            const blob = new Blob([JSON.stringify(matches, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'food-system-matches.json';
+            a.click();
         }
 
-        // Handle boundary upload - REMOVED (no longer needed)
-
-        // Initialize on page load
-        window.addEventListener('load', function() {
-            console.log('Page loaded, initializing map...');
-            initializeMap();
-        });
+        window.addEventListener('load', initMap);
     </script>
 </body>
 </html>
