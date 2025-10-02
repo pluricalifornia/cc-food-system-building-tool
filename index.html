@@ -809,38 +809,43 @@
         }
 
         function showNetworkConnections(org) {
-            require(["esri/Graphic", "esri/geometry/Polyline", "esri/symbols/SimpleLineSymbol"],
-                function(Graphic, Polyline, SimpleLineSymbol) {
+            require(["esri/Graphic", "esri/geometry/Polyline", "esri/symbols/SimpleLineSymbol", "esri/symbols/SimpleMarkerSymbol"],
+                function(Graphic, Polyline, SimpleLineSymbol, SimpleMarkerSymbol) {
                     // Clear existing network lines
                     appState.layers.network.removeAll();
                     
                     // Reset all org markers to normal
                     appState.organizations.forEach(o => {
                         if (o.graphic) {
-                            o.graphic.symbol = o.graphic.symbol.clone();
-                            o.graphic.symbol.size = "10px";
-                            o.graphic.symbol.outline.width = 2;
+                            o.graphic.symbol = new SimpleMarkerSymbol({
+                                color: typeColors[o.type] || [128, 128, 128],
+                                size: "10px",
+                                outline: { color: [255, 255, 255], width: 2 }
+                            });
                         }
                     });
                     
                     // Highlight selected org
-                    const selectedGraphic = appState.organizations.find(o => o.id === org.id)?.graphic;
-                    if (selectedGraphic) {
-                        selectedGraphic.symbol = selectedGraphic.symbol.clone();
-                        selectedGraphic.symbol.size = "16px";
-                        selectedGraphic.symbol.outline.width = 3;
-                        selectedGraphic.symbol.outline.color = [255, 215, 0, 1]; // Gold
+                    const selectedOrg = appState.organizations.find(o => o.id === org.id);
+                    if (selectedOrg && selectedOrg.graphic) {
+                        selectedOrg.graphic.symbol = new SimpleMarkerSymbol({
+                            color: typeColors[selectedOrg.type] || [128, 128, 128],
+                            size: "16px",
+                            outline: { color: [255, 215, 0], width: 3 }
+                        });
                     }
                     
                     const matches = getMatches(org.id);
                     
                     matches.slice(0, 10).forEach(match => {
                         // Highlight matched org
-                        const matchGraphic = appState.organizations.find(o => o.id === match.org.id)?.graphic;
-                        if (matchGraphic) {
-                            matchGraphic.symbol = matchGraphic.symbol.clone();
-                            matchGraphic.symbol.size = "14px";
-                            matchGraphic.symbol.outline.width = 3;
+                        const matchedOrg = appState.organizations.find(o => o.id === match.org.id);
+                        if (matchedOrg && matchedOrg.graphic) {
+                            matchedOrg.graphic.symbol = new SimpleMarkerSymbol({
+                                color: typeColors[matchedOrg.type] || [128, 128, 128],
+                                size: "14px",
+                                outline: { color: [255, 255, 255], width: 3 }
+                            });
                         }
                         
                         // Calculate match type dominance
@@ -855,23 +860,17 @@
                         // Determine line color based on match type
                         let lineColor;
                         if (needResourceCount > resourceNeedCount) {
-                            // More "you need" matches - Orange (they help you)
-                            lineColor = [255, 140, 0]; // Orange
+                            lineColor = [255, 140, 0]; // Orange - they help you
                         } else if (resourceNeedCount > needResourceCount) {
-                            // More "you provide" matches - Green (you help them)
-                            lineColor = [34, 200, 34]; // Green
+                            lineColor = [34, 200, 34]; // Green - you help them
                         } else {
-                            // Equal exchange - Blue (mutual benefit)
-                            lineColor = [100, 150, 255]; // Blue
+                            lineColor = [100, 150, 255]; // Blue - mutual
                         }
                         
-                        // Calculate opacity based on match strength (score)
-                        // Score typically ranges from 5-50, normalize to 0.3-1.0 opacity
+                        // Calculate opacity based on match strength
                         const normalizedScore = Math.min(match.matchData.score / 40, 1);
                         const opacity = 0.3 + (normalizedScore * 0.7);
-                        
-                        // Calculate line width based on match strength
-                        const lineWidth = 1 + (normalizedScore * 4); // 1-5px
+                        const lineWidth = 1 + (normalizedScore * 4);
                         
                         const line = new Polyline({
                             paths: [[org.lng, org.lat], [match.org.lng, match.org.lat]]
