@@ -87,6 +87,45 @@
             </div>
 
             <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h3 class="font-bold text-lg mb-4">Network Connection Legend</h3>
+                <p class="text-sm text-gray-600 mb-4">Click any organization to see its network connections. Line color and thickness show match type and strength.</p>
+                <div class="space-y-3">
+                    <div class="flex items-center gap-3">
+                        <div style="width: 60px; height: 4px; background: linear-gradient(to right, rgba(255, 140, 0, 0.3), rgba(255, 140, 0, 1));"></div>
+                        <div>
+                            <div class="font-semibold text-sm">Orange Lines - They Help You</div>
+                            <div class="text-xs text-gray-600">Partner provides resources you need</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div style="width: 60px; height: 4px; background: linear-gradient(to right, rgba(34, 200, 34, 0.3), rgba(34, 200, 34, 1));"></div>
+                        <div>
+                            <div class="font-semibold text-sm">Green Lines - You Help Them</div>
+                            <div class="text-xs text-gray-600">You provide resources they need</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div style="width: 60px; height: 4px; background: linear-gradient(to right, rgba(100, 150, 255, 0.3), rgba(100, 150, 255, 1));"></div>
+                        <div>
+                            <div class="font-semibold text-sm">Blue Lines - Mutual Benefit</div>
+                            <div class="text-xs text-gray-600">Equal exchange of resources</div>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3 mt-4 pt-4 border-t">
+                        <div class="flex flex-col gap-2">
+                            <div style="width: 60px; height: 1px; background: rgba(100, 150, 255, 0.3);"></div>
+                            <div style="width: 60px; height: 3px; background: rgba(100, 150, 255, 0.7);"></div>
+                            <div style="width: 60px; height: 5px; background: rgba(100, 150, 255, 1);"></div>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-sm">Line Thickness = Match Strength</div>
+                            <div class="text-xs text-gray-600">Thicker, more opaque lines indicate stronger matches with higher compatibility scores</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
                 <h3 class="font-bold text-lg mb-4">Quick Stats</h3>
                 <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div class="text-center p-4 bg-green-50 rounded-lg">
@@ -735,7 +774,7 @@
                             appState.organizations = generateOrganizations();
                             
                             appState.organizations.forEach(org => {
-                                appState.layers.org.add(new Graphic({
+                                const graphic = new Graphic({
                                     geometry: new Point({ longitude: org.lng, latitude: org.lat }),
                                     symbol: new SimpleMarkerSymbol({
                                         color: typeColors[org.type] || [128, 128, 128],
@@ -747,7 +786,9 @@
                                         title: org.name,
                                         content: `<b>Type:</b> ${org.type}<br><b>County:</b> ${org.county}<br><b>Top Needs:</b><br>${org.topNeeds.map(n => `• ${n}`).join('<br>')}`
                                     })
-                                }));
+                                });
+                                appState.layers.org.add(graphic);
+                                org.graphic = graphic; // Store reference
                             });
                             
                             let total = 0;
@@ -757,13 +798,116 @@
                             appState.view.on("click", e => {
                                 appState.view.hitTest(e).then(r => {
                                     if (r.results.length > 0 && r.results[0].graphic.attributes?.id) {
-                                        showOrgMatches(r.results[0].graphic.attributes);
+                                        const clickedOrg = r.results[0].graphic.attributes;
+                                        showNetworkConnections(clickedOrg);
                                     }
                                 });
                             });
                         });
                 });
             });
+        }
+
+        function showNetworkConnections(org) {
+            require(["esri/Graphic", "esri/geometry/Polyline", "esri/symbols/SimpleLineSymbol"],
+                function(Graphic, Polyline, SimpleLineSymbol) {
+                    // Clear existing network lines
+                    appState.layers.network.removeAll();
+                    
+                    // Reset all org markers to normal
+                    appState.organizations.forEach(o => {
+                        if (o.graphic) {
+                            o.graphic.symbol = o.graphic.symbol.clone();
+                            o.graphic.symbol.size = "10px";
+                            o.graphic.symbol.outline.width = 2;
+                        }
+                    });
+                    
+                    // Highlight selected org
+                    const selectedGraphic = appState.organizations.find(o => o.id === org.id)?.graphic;
+                    if (selectedGraphic) {
+                        selectedGraphic.symbol = selectedGraphic.symbol.clone();
+                        selectedGraphic.symbol.size = "16px";
+                        selectedGraphic.symbol.outline.width = 3;
+                        selectedGraphic.symbol.outline.color = [255, 215, 0, 1]; // Gold
+                    }
+                    
+                    const matches = getMatches(org.id);
+                    
+                    matches.slice(0, 10).forEach(match => {
+                        // Highlight matched org
+                        const matchGraphic = appState.organizations.find(o => o.id === match.org.id)?.graphic;
+                        if (matchGraphic) {
+                            matchGraphic.symbol = matchGraphic.symbol.clone();
+                            matchGraphic.symbol.size = "14px";
+                            matchGraphic.symbol.outline.width = 3;
+                        }
+                        
+                        // Calculate match type dominance
+                        let needResourceCount = 0;
+                        let resourceNeedCount = 0;
+                        
+                        match.matchData.matches.forEach(m => {
+                            if (m.type === "need-resource") needResourceCount++;
+                            else resourceNeedCount++;
+                        });
+                        
+                        // Determine line color based on match type
+                        let lineColor;
+                        if (needResourceCount > resourceNeedCount) {
+                            // More "you need" matches - Orange (they help you)
+                            lineColor = [255, 140, 0]; // Orange
+                        } else if (resourceNeedCount > needResourceCount) {
+                            // More "you provide" matches - Green (you help them)
+                            lineColor = [34, 200, 34]; // Green
+                        } else {
+                            // Equal exchange - Blue (mutual benefit)
+                            lineColor = [100, 150, 255]; // Blue
+                        }
+                        
+                        // Calculate opacity based on match strength (score)
+                        // Score typically ranges from 5-50, normalize to 0.3-1.0 opacity
+                        const normalizedScore = Math.min(match.matchData.score / 40, 1);
+                        const opacity = 0.3 + (normalizedScore * 0.7);
+                        
+                        // Calculate line width based on match strength
+                        const lineWidth = 1 + (normalizedScore * 4); // 1-5px
+                        
+                        const line = new Polyline({
+                            paths: [[org.lng, org.lat], [match.org.lng, match.org.lat]]
+                        });
+
+                        const lineSymbol = new SimpleLineSymbol({
+                            color: [...lineColor, opacity],
+                            width: lineWidth,
+                            style: "solid"
+                        });
+
+                        const lineGraphic = new Graphic({
+                            geometry: line,
+                            symbol: lineSymbol,
+                            attributes: {
+                                fromOrg: org.name,
+                                toOrg: match.org.name,
+                                score: match.matchData.score,
+                                needResourceCount: needResourceCount,
+                                resourceNeedCount: resourceNeedCount
+                            },
+                            popupTemplate: {
+                                title: "Partnership Connection",
+                                content: `
+                                    <b>From:</b> ${org.name}<br>
+                                    <b>To:</b> ${match.org.name}<br>
+                                    <b>Match Score:</b> ${match.matchData.score}<br>
+                                    <b>They help you:</b> ${needResourceCount} ways<br>
+                                    <b>You help them:</b> ${resourceNeedCount} ways
+                                `
+                            }
+                        });
+
+                        appState.layers.network.add(lineGraphic);
+                    });
+                });
         }
 
         function toggleNetworkView() {
