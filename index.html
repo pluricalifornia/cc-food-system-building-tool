@@ -31,7 +31,7 @@
         <!-- Header -->
         <div class="text-center mb-8">
             <h1 class="text-4xl font-bold text-green-800 mb-4">
-                🌾 Central Coast Food System Network Matcher
+                Central Coast Food System Network Matcher
             </h1>
             <p class="text-lg text-gray-600 max-w-3xl mx-auto mb-6">
                 Interactive map of 100 organizations across 6 Central Coast counties
@@ -119,12 +119,12 @@
 
             <!-- GitHub Instructions -->
             <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
-                <h4 class="font-bold text-blue-900 mb-2">📚 GitHub Repository Info</h4>
+                <h4 class="font-bold text-blue-900 mb-2">GitHub Repository Info</h4>
                 <div class="text-sm text-blue-800 space-y-2">
                     <p><strong>Repository:</strong> <code class="bg-blue-100 px-2 py-1 rounded">pluricalifornia/cc-food-system-building-tool</code></p>
                     <p><strong>Live Site:</strong> <code class="bg-blue-100 px-2 py-1 rounded">https://pluricalifornia.github.io/cc-food-system-building-tool</code></p>
                     <p><strong>County Data:</strong> Automatically loaded from <code class="bg-blue-100 px-2 py-1 rounded">data/CA_COUNTIES.json</code></p>
-                    <p class="text-green-700 font-semibold mt-3">✅ County boundaries will load automatically when hosted on GitHub Pages!</p>
+                    <p class="text-green-700 font-semibold mt-3">County boundaries will load automatically when hosted on GitHub Pages</p>
                 </div>
             </div>
         </div>
@@ -139,7 +139,7 @@
     </div>
 
     <script>
-        // Global variables
+        // Global variables - DECLARE ALL AT TOP
         let organizations = [];
         let view = null;
         let orgLayer = null;
@@ -147,6 +147,8 @@
         let boundaryLayer = null;
         let currentMapView = 'organizations';
         let selectedOrg = null;
+        let countyBoundaries = {}; // Store actual county boundary coordinates
+        let organizationPositions = {}; // Store consistent positions
 
         // County locations with bounds
         const countyLocations = {
@@ -168,13 +170,95 @@
             "For-profit Service Provider": [64, 224, 208]
         };
 
-        // Generate unique location using point-in-polygon testing with actual county boundaries
+        // UTILITY FUNCTIONS - DEFINE BEFORE USE
+
+        // Point-in-polygon test using ray casting algorithm
+        function isPointInPolygon(point, polygon) {
+            const [x, y] = point;
+            let inside = false;
+            
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const [xi, yi] = polygon[i];
+                const [xj, yj] = polygon[j];
+                
+                if (((yi > y) !== (yj > y)) && 
+                    (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+                    inside = !inside;
+                }
+            }
+            
+            return inside;
+        }
+
+        // Convert Web Mercator to WGS84
+        function webMercatorToWGS84(x, y) {
+            const lng = x / 111320.0;
+            const lat = (180.0 / Math.PI) * (2.0 * Math.atan(Math.exp(y * Math.PI / 20037508.34)) - Math.PI / 2.0);
+            return [lng, lat];
+        }
+
+        // Calculate polygon area
+        function calculatePolygonArea(ring) {
+            let area = 0;
+            const n = ring.length - 1;
+            for (let i = 0; i < n; i++) {
+                area += (ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]);
+            }
+            return Math.abs(area) / 2;
+        }
+
+        // Convert hex to RGB
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? [
+                parseInt(result[1], 16),
+                parseInt(result[2], 16),
+                parseInt(result[3], 16)
+            ] : [200, 200, 200];
+        }
+
+        // Store boundary coordinates
+        function storeBoundaryCoordinates(countyName, geometry) {
+            let coordinates = [];
+            
+            if (geometry.type === 'Polygon') {
+                coordinates = geometry.coordinates[0].map(coord => {
+                    if (Math.abs(coord[0]) > 180) {
+                        return webMercatorToWGS84(coord[0], coord[1]);
+                    }
+                    return [coord[0], coord[1]];
+                });
+            } else if (geometry.type === 'MultiPolygon') {
+                let largestArea = 0;
+                let largestRing = null;
+                
+                geometry.coordinates.forEach(polygon => {
+                    const ring = polygon[0];
+                    const area = calculatePolygonArea(ring);
+                    if (area > largestArea) {
+                        largestArea = area;
+                        largestRing = ring;
+                    }
+                });
+                
+                coordinates = (largestRing || geometry.coordinates[0][0]).map(coord => {
+                    if (Math.abs(coord[0]) > 180) {
+                        return webMercatorToWGS84(coord[0], coord[1]);
+                    }
+                    return [coord[0], coord[1]];
+                });
+            }
+            
+            countyBoundaries[countyName] = coordinates;
+            console.log(`Stored ${coordinates.length} boundary points for ${countyName}`);
+        }
+
+        // Generate unique location with point-in-polygon testing
         function generateUniqueLocation(county, existingLocations, minDistance = 0.05) {
             const boundary = countyBoundaries[county];
             
             // If we have actual boundary data, use point-in-polygon testing
             if (boundary && boundary.length > 0) {
-                // Get bounding box of the county
                 let minLng = Infinity, maxLng = -Infinity;
                 let minLat = Infinity, maxLat = -Infinity;
                 
@@ -185,7 +269,6 @@
                     maxLat = Math.max(maxLat, coord[1]);
                 });
                 
-                // Generate random point within polygon using rejection sampling
                 let attempts = 0;
                 let point;
                 
@@ -197,7 +280,6 @@
                     attempts++;
                     
                     if (isPointInPolygon(point, boundary)) {
-                        // Check minimum distance from existing locations
                         const tooClose = existingLocations.some(existing => {
                             const distance = Math.sqrt(
                                 Math.pow(existing.lat - point[1], 2) + Math.pow(existing.lng - point[0], 2)
@@ -212,15 +294,17 @@
                     
                 } while (attempts < 500);
                 
-                console.warn(`Could not find valid point in ${county} after 500 attempts, using fallback`);
+                console.warn(`Could not find valid point in ${county} after 500 attempts`);
             }
             
-            // Fallback to original bounding box method
-            const bounds = countyLocations[county].bounds;
-            let attempts = 0;
-            const maxAttempts = 100;
+            // Fallback to bounding box method
+            const bounds = countyLocations[county]?.bounds;
+            if (!bounds) {
+                return { lat: 35.5, lng: -120.5 };
+            }
             
-            while (attempts < maxAttempts) {
+            let attempts = 0;
+            while (attempts < 100) {
                 const lat = bounds.minLat + Math.random() * (bounds.maxLat - bounds.minLat);
                 const lng = bounds.minLng + Math.random() * (bounds.maxLng - bounds.minLng);
                 
@@ -241,117 +325,6 @@
                 lat: bounds.minLat + Math.random() * (bounds.maxLat - bounds.minLat),
                 lng: bounds.minLng + Math.random() * (bounds.maxLng - bounds.minLng)
             };
-        }
-
-        // Point-in-polygon test using ray casting algorithm
-        function isPointInPolygon(point, polygon) {
-            const [x, y] = point;
-            let inside = false;
-            
-            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-                const [xi, yi] = polygon[i];
-                const [xj, yj] = polygon[j];
-                
-                if (((yi > y) !== (yj > y)) && 
-                    (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
-                    inside = !inside;
-                }
-            }
-            
-            return inside;
-        }
-
-        // Convert Web Mercator to WGS84 (approximate)
-        function webMercatorToWGS84(x, y) {
-            const lng = x / 111320.0;
-            const lat = (180.0 / Math.PI) * (2.0 * Math.atan(Math.exp(y * Math.PI / 20037508.34)) - Math.PI / 2.0);
-            return [lng, lat];
-        }
-
-        // Calculate approximate area of polygon for MultiPolygon handling
-        function calculatePolygonArea(ring) {
-            let area = 0;
-            const n = ring.length - 1;
-            for (let i = 0; i < n; i++) {
-                area += (ring[i][0] * ring[i + 1][1] - ring[i + 1][0] * ring[i][1]);
-            }
-            return Math.abs(area) / 2;
-        }
-
-        // Store boundary coordinates for point-in-polygon testing
-        function storeBoundaryCoordinates(countyName, geometry) {
-            let coordinates = [];
-            
-            if (geometry.type === 'Polygon') {
-                // Get the outer ring (first ring) and convert from Web Mercator to WGS84
-                coordinates = geometry.coordinates[0].map(coord => {
-                    // Check if coordinates are in Web Mercator range (large numbers)
-                    if (Math.abs(coord[0]) > 180) {
-                        return webMercatorToWGS84(coord[0], coord[1]);
-                    }
-                    // Already in WGS84
-                    return [coord[0], coord[1]];
-                });
-            } else if (geometry.type === 'MultiPolygon') {
-                // Get the outer ring of the largest polygon
-                let largestArea = 0;
-                let largestRing = null;
-                
-                geometry.coordinates.forEach(polygon => {
-                    const ring = polygon[0]; // outer ring
-                    const area = calculatePolygonArea(ring);
-                    if (area > largestArea) {
-                        largestArea = area;
-                        largestRing = ring;
-                    }
-                });
-                
-                coordinates = (largestRing || geometry.coordinates[0][0]).map(coord => {
-                    if (Math.abs(coord[0]) > 180) {
-                        return webMercatorToWGS84(coord[0], coord[1]);
-                    }
-                    return [coord[0], coord[1]];
-                });
-            }
-            
-            countyBoundaries[countyName] = coordinates;
-            console.log(`Stored ${coordinates.length} boundary points for ${countyName}`);
-        }
-
-        // Convert hex color to RGB array
-        function hexToRgb(hex) {
-            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-            return result ? [
-                parseInt(result[1], 16),
-                parseInt(result[2], 16),
-                parseInt(result[3], 16)
-            ] : [200, 200, 200];
-        }
-
-        // Update county coordinates from GeoJSON centroids
-        function updateCountyCoordinates(countiesData) {
-            const centralCoastCounties = ['Monterey', 'Santa Cruz', 'Santa Barbara', 'San Benito', 'Ventura', 'San Luis Obispo'];
-            
-            countiesData.features.forEach(feature => {
-                const countyName = feature.properties.NAME;
-                
-                if (centralCoastCounties.includes(countyName)) {
-                    // Use the provided centroid coordinates (INTPTLAT, INTPTLON)
-                    const lat = parseFloat(feature.properties.INTPTLAT);
-                    const lng = parseFloat(feature.properties.INTPTLON);
-                    
-                    if (!isNaN(lat) && !isNaN(lng)) {
-                        const countyKey = countyName + " County";
-                        if (countyLocations[countyKey]) {
-                            countyLocations[countyKey].lat = lat;
-                            countyLocations[countyKey].lng = lng;
-                            console.log('Updated coordinates for', countyKey, ':', [lng, lat]);
-                        }
-                    }
-                }
-            });
-            
-            console.log('Final county coordinates:', countyLocations);
         }
 
         // Generate organizations
@@ -545,8 +518,142 @@
             return matches;
         }
 
+        // Update county coordinates from GeoJSON
+        function updateCountyCoordinates(countiesData) {
+            const centralCoastCounties = ['Monterey', 'Santa Cruz', 'Santa Barbara', 'San Benito', 'Ventura', 'San Luis Obispo'];
+            
+            countiesData.features.forEach(feature => {
+                const countyName = feature.properties.NAME;
+                
+                if (centralCoastCounties.includes(countyName)) {
+                    const lat = parseFloat(feature.properties.INTPTLAT);
+                    const lng = parseFloat(feature.properties.INTPTLON);
+                    
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        const countyKey = countyName + " County";
+                        if (countyLocations[countyKey]) {
+                            countyLocations[countyKey].lat = lat;
+                            countyLocations[countyKey].lng = lng;
+                            console.log('Updated coordinates for', countyKey);
+                        }
+                    }
+                }
+            });
+        }
+
+        // Load county boundaries from GitHub
+        async function loadCountyBoundaries() {
+            const boundariesUrl = 'https://raw.githubusercontent.com/pluricalifornia/cc-food-system-building-tool/main/data/CA_COUNTIES.json';
+            
+            try {
+                const response = await fetch(boundariesUrl);
+                if (!response.ok) {
+                    console.warn('Could not load county boundaries from GitHub');
+                    return false;
+                }
+                const json = await response.json();
+                
+                if (json) {
+                    await loadBoundariesOnMap(json);
+                    updateCountyCoordinates(json);
+                    return true;
+                }
+            } catch (error) {
+                console.warn('Error loading county boundaries:', error);
+                return false;
+            }
+        }
+
+        // Load boundaries onto the map
+        function loadBoundariesOnMap(json) {
+            return new Promise((resolve) => {
+                require([
+                    "esri/Graphic",
+                    "esri/symbols/SimpleFillSymbol",
+                    "esri/geometry/Polygon"
+                ], function(Graphic, SimpleFillSymbol, Polygon) {
+                    if (!boundaryLayer) {
+                        console.warn('Boundary layer not initialized yet');
+                        resolve();
+                        return;
+                    }
+                    
+                    boundaryLayer.removeAll();
+                    
+                    const countyColors = {
+                        'Monterey': '#2E86AB',
+                        'Santa Cruz': '#A23B72',
+                        'Santa Barbara': '#F18F01',
+                        'San Benito': '#C73E1D',
+                        'Ventura': '#5D737E',
+                        'San Luis Obispo': '#7A4F9A'
+                    };
+                    
+                    const centralCoastCounties = ['Monterey', 'Santa Cruz', 'Santa Barbara', 'San Benito', 'Ventura', 'San Luis Obispo'];
+                    
+                    if (json.type === "FeatureCollection") {
+                        json.features.forEach((feature, index) => {
+                            const countyName = feature.properties.NAME;
+                            
+                            if (centralCoastCounties.includes(countyName)) {
+                                console.log('Processing county boundary:', countyName);
+                                
+                                storeBoundaryCoordinates(countyName, feature.geometry);
+                                
+                                try {
+                                    let geometry;
+                                    if (feature.geometry.type === 'Polygon') {
+                                        geometry = new Polygon({
+                                            rings: feature.geometry.coordinates,
+                                            spatialReference: { wkid: 4326 }
+                                        });
+                                    } else if (feature.geometry.type === 'MultiPolygon') {
+                                        geometry = new Polygon({
+                                            rings: feature.geometry.coordinates[0],
+                                            spatialReference: { wkid: 4326 }
+                                        });
+                                    }
+                                    
+                                    if (geometry) {
+                                        const color = hexToRgb(countyColors[countyName] || '#cccccc');
+                                        const graphic = new Graphic({
+                                            geometry: geometry,
+                                            attributes: {
+                                                OBJECTID: index + 1,
+                                                NAME: countyName,
+                                                COUNTY: countyName
+                                            },
+                                            symbol: new SimpleFillSymbol({
+                                                color: [...color, 0.2],
+                                                outline: {
+                                                    color: [...color, 0.8],
+                                                    width: 2
+                                                }
+                                            }),
+                                            popupTemplate: {
+                                                title: "{NAME} County",
+                                                content: "Central Coast County"
+                                            }
+                                        });
+                                        
+                                        boundaryLayer.add(graphic);
+                                        console.log(`Added boundary for ${countyName}`);
+                                    }
+                                } catch (geomError) {
+                                    console.error('Error processing geometry for', countyName, geomError);
+                                }
+                            }
+                        });
+                        
+                        console.log('County boundaries loaded successfully');
+                    }
+                    resolve();
+                });
+            });
+        }
+
         // Initialize map
-        function initializeMap() {
+        async function initializeMap() {
             require([
                 "esri/Map",
                 "esri/views/MapView",
@@ -556,9 +663,8 @@
                 "esri/geometry/Polyline",
                 "esri/symbols/SimpleMarkerSymbol",
                 "esri/symbols/SimpleLineSymbol",
-                "esri/symbols/SimpleFillSymbol",
                 "esri/PopupTemplate"
-            ], function(Map, MapView, Graphic, GraphicsLayer, Point, Polyline, SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, PopupTemplate) {
+            ], async function(Map, MapView, Graphic, GraphicsLayer, Point, Polyline, SimpleMarkerSymbol, SimpleLineSymbol, PopupTemplate) {
                 
                 const map = new Map({
                     basemap: "streets-navigation-vector"
@@ -579,6 +685,17 @@
                 map.add(networkLayer);
                 map.add(orgLayer);
 
+                // Wait for view to be ready
+                await view.when();
+                
+                // Load county boundaries first
+                console.log('Loading county boundaries...');
+                await loadCountyBoundaries();
+                
+                // Generate organizations after boundaries are loaded
+                console.log('Generating organizations...');
+                organizations = generateOrganizations();
+                
                 // Add organization markers
                 organizations.forEach(org => {
                     const point = new Point({
@@ -634,6 +751,8 @@
                     totalMatches += getMatches(org.id).length;
                 });
                 document.getElementById('totalMatches').textContent = totalMatches;
+                
+                console.log('Map initialization complete!');
             });
         }
 
@@ -703,13 +822,13 @@
                     
                     <div class="grid md:grid-cols-2 gap-6">
                         <div>
-                            <h3 class="font-semibold text-gray-700 mb-3">⚠️ Current Needs</h3>
+                            <h3 class="font-semibold text-gray-700 mb-3">Current Needs</h3>
                             <ul class="space-y-2 text-sm">
                                 ${org.topNeeds.map(need => `<li class="bg-orange-50 px-3 py-2 rounded">${need}</li>`).join('')}
                             </ul>
                         </div>
                         <div>
-                            <h3 class="font-semibold text-gray-700 mb-3">✅ Available Resources</h3>
+                            <h3 class="font-semibold text-gray-700 mb-3">Available Resources</h3>
                             <ul class="space-y-2 text-sm">
                                 ${org.topResources.map(resource => `<li class="bg-green-50 px-3 py-2 rounded">${resource}</li>`).join('')}
                             </ul>
@@ -717,7 +836,7 @@
                     </div>
                 </div>
                 
-                <h3 class="text-2xl font-bold text-gray-800 mb-4">📈 Top ${Math.min(matches.length, 5)} Partnership Matches</h3>
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">Top ${Math.min(matches.length, 5)} Partnership Matches</h3>
                 
                 <div class="space-y-4">
             `;
@@ -853,117 +972,10 @@
             }
         }
 
-        // Load county boundaries from GitHub with improved polygon rendering
-        function loadCountyBoundaries() {
-            const boundariesUrl = 'https://raw.githubusercontent.com/pluricalifornia/cc-food-system-building-tool/main/data/CA_COUNTIES.json';
-            
-            fetch(boundariesUrl)
-                .then(response => {
-                    if (!response.ok) {
-                        console.warn('Could not load county boundaries from GitHub');
-                        return null;
-                    }
-                    return response.json();
-                })
-                .then(json => {
-                    if (json) {
-                        loadBoundariesOnMap(json);
-                        updateCountyCoordinates(json);
-                    }
-                })
-                .catch(error => {
-                    console.warn('Error loading county boundaries:', error);
-                });
-        }
-
-        // Load boundaries onto the map with county-specific colors
-        function loadBoundariesOnMap(json) {
-            require([
-                "esri/Graphic",
-                "esri/symbols/SimpleFillSymbol",
-                "esri/geometry/Polygon"
-            ], function(Graphic, SimpleFillSymbol, Polygon) {
-                boundaryLayer.removeAll();
-                
-                // Define county colors (matching the other visualization)
-                const countyColors = {
-                    'Monterey': '#2E86AB',
-                    'Santa Cruz': '#A23B72',
-                    'Santa Barbara': '#F18F01',
-                    'San Benito': '#C73E1D',
-                    'Ventura': '#5D737E',
-                    'San Luis Obispo': '#7A4F9A'
-                };
-                
-                const centralCoastCounties = ['Monterey', 'Santa Cruz', 'Santa Barbara', 'San Benito', 'Ventura', 'San Luis Obispo'];
-                
-                if (json.type === "FeatureCollection") {
-                    json.features.forEach((feature, index) => {
-                        const countyName = feature.properties.NAME;
-                        
-                        if (centralCoastCounties.includes(countyName)) {
-                            console.log('Processing county boundary:', countyName);
-                            
-                            // Store boundary coordinates for geocaching
-                            storeBoundaryCoordinates(countyName, feature.geometry);
-                            
-                            try {
-                                let geometry;
-                                if (feature.geometry.type === 'Polygon') {
-                                    geometry = new Polygon({
-                                        rings: feature.geometry.coordinates,
-                                        spatialReference: { wkid: 4326 }
-                                    });
-                                } else if (feature.geometry.type === 'MultiPolygon') {
-                                    // Use the first (usually largest) polygon
-                                    geometry = new Polygon({
-                                        rings: feature.geometry.coordinates[0],
-                                        spatialReference: { wkid: 4326 }
-                                    });
-                                }
-                                
-                                if (geometry) {
-                                    const color = hexToRgb(countyColors[countyName] || '#cccccc');
-                                    const graphic = new Graphic({
-                                        geometry: geometry,
-                                        attributes: {
-                                            OBJECTID: index + 1,
-                                            NAME: countyName,
-                                            COUNTY: countyName
-                                        },
-                                        symbol: new SimpleFillSymbol({
-                                            color: [...color, 0.2], // 20% opacity
-                                            outline: {
-                                                color: [...color, 0.8],
-                                                width: 2
-                                            }
-                                        }),
-                                        popupTemplate: {
-                                            title: "{NAME} County",
-                                            content: "Central Coast County"
-                                        }
-                                    });
-                                    
-                                    boundaryLayer.add(graphic);
-                                    console.log(`Added boundary graphic for ${countyName}`);
-                                }
-                            } catch (geomError) {
-                                console.error('Error processing geometry for', countyName, geomError);
-                            }
-                        }
-                    });
-                    
-                    console.log('County boundaries loaded successfully from GitHub');
-                }
-            });
-        }
-
         // Initialize on page load
         window.addEventListener('load', function() {
-            organizations = generateOrganizations();
+            console.log('Page loaded, initializing map...');
             initializeMap();
-            // Load county boundaries after map is initialized
-            setTimeout(loadCountyBoundaries, 2000);
         });
     </script>
 </body>
