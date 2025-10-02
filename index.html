@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Central Coast Food System Network Matcher</title>
+    <title>Central Coast Food System Building Tool</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
     <script src="https://js.arcgis.com/4.28/"></script>
@@ -51,10 +51,7 @@
                 <button onclick="exportMatches()" class="btn px-6 py-2 rounded-lg font-semibold bg-indigo-600 text-white">
                     ⬇️ Export Matches
                 </button>
-                <label class="btn px-6 py-2 rounded-lg font-semibold bg-orange-600 text-white cursor-pointer">
-                    ⬆️ Load Boundaries
-                    <input type="file" id="boundaryUpload" accept=".json,.geojson" class="hidden" onchange="handleBoundaryUpload(event)">
-                </label>
+
             </div>
         </div>
 
@@ -572,13 +569,6 @@
                     "esri/symbols/SimpleFillSymbol",
                     "esri/geometry/Polygon"
                 ], function(Graphic, SimpleFillSymbol, Polygon) {
-                    if (!boundaryLayer) {
-                        console.warn('Boundary layer not initialized yet');
-                        resolve();
-                        return;
-                    }
-                    
-                    boundaryLayer.removeAll();
                     
                     const countyColors = {
                         'Monterey': '#2E86AB',
@@ -666,10 +656,12 @@
                 "esri/PopupTemplate"
             ], async function(Map, MapView, Graphic, GraphicsLayer, Point, Polyline, SimpleMarkerSymbol, SimpleLineSymbol, PopupTemplate) {
                 
+                console.log('Creating map...');
                 const map = new Map({
                     basemap: "streets-navigation-vector"
                 });
 
+                console.log('Creating map view...');
                 view = new MapView({
                     container: "mapDiv",
                     map: map,
@@ -677,6 +669,7 @@
                     zoom: 7
                 });
 
+                console.log('Creating layers...');
                 orgLayer = new GraphicsLayer();
                 networkLayer = new GraphicsLayer();
                 boundaryLayer = new GraphicsLayer();
@@ -685,18 +678,22 @@
                 map.add(networkLayer);
                 map.add(orgLayer);
 
-                // Wait for view to be ready
+                console.log('Waiting for view to be ready...');
                 await view.when();
+                console.log('View is ready!');
                 
                 // Load county boundaries first
                 console.log('Loading county boundaries...');
                 await loadCountyBoundaries();
+                console.log('Boundaries loaded!');
                 
                 // Generate organizations after boundaries are loaded
                 console.log('Generating organizations...');
                 organizations = generateOrganizations();
+                console.log(`Generated ${organizations.length} organizations`);
                 
                 // Add organization markers
+                console.log('Adding organization markers...');
                 organizations.forEach(org => {
                     const point = new Point({
                         longitude: org.lng,
@@ -733,6 +730,7 @@
 
                     orgLayer.add(graphic);
                 });
+                console.log('Markers added!');
 
                 view.on("click", function(event) {
                     view.hitTest(event).then(function(response) {
@@ -954,23 +952,7 @@
             URL.revokeObjectURL(url);
         }
 
-        // Handle boundary upload
-        function handleBoundaryUpload(event) {
-            const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const json = JSON.parse(e.target.result);
-                        loadBoundariesOnMap(json);
-                        alert('County boundaries loaded successfully!');
-                    } catch (error) {
-                        alert('Error parsing JSON file. Please ensure it is valid GeoJSON.');
-                    }
-                };
-                reader.readAsText(file);
-            }
-        }
+        // Handle boundary upload - REMOVED (no longer needed)
 
         // Initialize on page load
         window.addEventListener('load', function() {
