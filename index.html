@@ -808,102 +808,59 @@
             });
         }
 
+        let currentSelectedOrgId = null;
+
         function showNetworkConnections(org) {
-            require(["esri/Graphic", "esri/geometry/Polyline", "esri/symbols/SimpleLineSymbol", "esri/symbols/SimpleMarkerSymbol", "esri/geometry/Point"],
-                function(Graphic, Polyline, SimpleLineSymbol, SimpleMarkerSymbol, Point) {
-                    // Clear existing network lines
-                    appState.layers.network.removeAll();
-                    
-                    // Remove all org graphics and recreate them
-                    appState.layers.org.removeAll();
-                    
-                    const matches = getMatches(org.id);
-                    const matchedOrgIds = new Set(matches.slice(0, 10).map(m => m.org.id));
-                    
-                    // Recreate all org markers with appropriate highlighting
-                    appState.organizations.forEach(o => {
-                        let size = "10px";
-                        let outlineColor = [255, 255, 255];
-                        let outlineWidth = 2;
+            require(["esri/Graphic", "esri/geometry/Polyline", "esri/symbols/SimpleLineSymbol"],
+                function(Graphic, Polyline, SimpleLineSymbol) {
+                    try {
+                        // Clear existing network lines
+                        appState.layers.network.removeAll();
                         
-                        if (o.id === org.id) {
-                            // Selected org - gold outline, larger
-                            size = "16px";
-                            outlineColor = [255, 215, 0];
-                            outlineWidth = 3;
-                        } else if (matchedOrgIds.has(o.id)) {
-                            // Matched org - slightly larger
-                            size = "14px";
-                            outlineWidth = 3;
-                        }
+                        // Store the current selection
+                        currentSelectedOrgId = org.id;
                         
-                        const graphic = new Graphic({
-                            geometry: new Point({ longitude: o.lng, latitude: o.lat }),
-                            symbol: new SimpleMarkerSymbol({
-                                color: typeColors[o.type] || [128, 128, 128],
-                                size: size,
-                                outline: { color: outlineColor, width: outlineWidth }
-                            }),
-                            attributes: o,
-                            popupTemplate: {
-                                title: o.name,
-                                content: `<b>Type:</b> ${o.type}<br><b>County:</b> ${o.county}<br><b>Top Needs:</b><br>${o.topNeeds.map(n => `• ${n}`).join('<br>')}`
+                        const matches = getMatches(org.id);
+                        
+                        // Draw network lines only - don't modify org graphics
+                        matches.slice(0, 10).forEach(match => {
+                            let needResourceCount = 0;
+                            let resourceNeedCount = 0;
+                            
+                            match.matchData.matches.forEach(m => {
+                                if (m.type === "need-resource") needResourceCount++;
+                                else resourceNeedCount++;
+                            });
+                            
+                            let lineColor;
+                            if (needResourceCount > resourceNeedCount) {
+                                lineColor = [255, 140, 0]; // Orange
+                            } else if (resourceNeedCount > needResourceCount) {
+                                lineColor = [34, 200, 34]; // Green
+                            } else {
+                                lineColor = [100, 150, 255]; // Blue
                             }
-                        });
-                        
-                        appState.layers.org.add(graphic);
-                        o.graphic = graphic;
-                    });
-                    
-                    // Draw network lines
-                    matches.slice(0, 10).forEach(match => {
-                        let needResourceCount = 0;
-                        let resourceNeedCount = 0;
-                        
-                        match.matchData.matches.forEach(m => {
-                            if (m.type === "need-resource") needResourceCount++;
-                            else resourceNeedCount++;
-                        });
-                        
-                        let lineColor;
-                        if (needResourceCount > resourceNeedCount) {
-                            lineColor = [255, 140, 0]; // Orange
-                        } else if (resourceNeedCount > needResourceCount) {
-                            lineColor = [34, 200, 34]; // Green
-                        } else {
-                            lineColor = [100, 150, 255]; // Blue
-                        }
-                        
-                        const normalizedScore = Math.min(match.matchData.score / 40, 1);
-                        const opacity = 0.3 + (normalizedScore * 0.7);
-                        const lineWidth = 1 + (normalizedScore * 4);
-                        
-                        const line = new Polyline({
-                            paths: [[org.lng, org.lat], [match.org.lng, match.org.lat]]
-                        });
+                            
+                            const normalizedScore = Math.min(match.matchData.score / 40, 1);
+                            const opacity = 0.3 + (normalizedScore * 0.7);
+                            const lineWidth = 1 + (normalizedScore * 4);
+                            
+                            const lineGraphic = new Graphic({
+                                geometry: new Polyline({
+                                    paths: [[org.lng, org.lat], [match.org.lng, match.org.lat]]
+                                }),
+                                symbol: new SimpleLineSymbol({
+                                    color: [...lineColor, opacity],
+                                    width: lineWidth,
+                                    style: "solid"
+                                })
+                            });
 
-                        const lineGraphic = new Graphic({
-                            geometry: line,
-                            symbol: new SimpleLineSymbol({
-                                color: [...lineColor, opacity],
-                                width: lineWidth,
-                                style: "solid"
-                            }),
-                            attributes: {
-                                fromOrg: org.name,
-                                toOrg: match.org.name,
-                                score: match.matchData.score,
-                                needResourceCount: needResourceCount,
-                                resourceNeedCount: resourceNeedCount
-                            },
-                            popupTemplate: {
-                                title: "Partnership Connection",
-                                content: `<b>From:</b> ${org.name}<br><b>To:</b> ${match.org.name}<br><b>Match Score:</b> ${match.matchData.score}<br><b>They help you:</b> ${needResourceCount} ways<br><b>You help them:</b> ${resourceNeedCount} ways`
-                            }
+                            appState.layers.network.add(lineGraphic);
                         });
-
-                        appState.layers.network.add(lineGraphic);
-                    });
+                    } catch (error) {
+                        console.error('Error showing network connections:', error);
+                    }
                 });
         }
 
