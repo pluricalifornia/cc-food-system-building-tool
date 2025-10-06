@@ -1782,6 +1782,7 @@
                                             r.results[0].graphic.attributes?.id) {
                                             const clickedOrg = r.results[0].graphic.attributes;
                                             showNetworkConnections(clickedOrg);
+                                            showOrgMatches(clickedOrg);
                                         }
                                     }).catch(err => {
                                         console.error('Hit test error:', err);
@@ -1802,10 +1803,7 @@
                 "esri/symbols/SimpleLineSymbol"
             ], function(Graphic, Polyline, SimpleLineSymbol) {
                 try {
-                    if (currentSelectedOrgId === org.id) {
-                        return;
-                    }
-                    
+                    // Don't prevent redrawing - just clear and redraw
                     appState.layers.network.removeAll();
                     currentSelectedOrgId = org.id;
                     
@@ -2008,6 +2006,12 @@
         function showMapView() {
             document.getElementById('mainView').classList.remove('hidden');
             document.getElementById('matchView').classList.add('hidden');
+            
+            // Clear the network lines when going back to map view
+            if (appState.layers.network) {
+                appState.layers.network.removeAll();
+                currentSelectedOrgId = null;
+            }
         }
 
         function exportOrganizations() {
