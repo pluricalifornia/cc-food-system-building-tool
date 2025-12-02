@@ -32,20 +32,120 @@
             <h1 class="text-4xl font-bold text-green-800 mb-4">
                 Central Coast Food System Network Matcher
             </h1>
-            <p class="text-lg text-gray-600 max-w-3xl mx-auto mb-6">
+            <p class="text-lg text-gray-600 max-w-3xl mx-auto mb-2">
                 Interactive map of 100 organizations across 6 Central Coast counties
             </p>
+            
+            <!-- INTRODUCTION SECTION -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6 text-left max-w-4xl mx-auto">
+                <h2 class="text-xl font-bold text-green-700 mb-3 flex items-center gap-2">
+                    <span>🌱</span> Welcome to the Network Matcher
+                </h2>
+                <div class="text-gray-700 space-y-3">
+                    <p>
+                        <strong>Purpose:</strong> This tool helps food system organizations across California's Central Coast 
+                        discover potential partnerships by matching their needs with other organizations' available resources, and vice versa.
+                    </p>
+                    <p>
+                        <strong>Goal:</strong> Strengthen regional food systems by facilitating connections between farmers, processors, 
+                        distributors, nonprofits, educational institutions, cooperatives, and service providers—ultimately improving 
+                        food access, sustainability, and economic resilience in our communities.
+                    </p>
+                    <p>
+                        <strong>Coverage:</strong> Monterey, Santa Cruz, San Benito, Santa Barbara, San Luis Obispo, and Ventura counties.
+                    </p>
+                </div>
+                <button onclick="toggleInstructions()" class="mt-4 text-green-600 hover:text-green-800 font-semibold flex items-center gap-2">
+                    <span id="instructionsToggleIcon">▶</span> How to Use This Tool
+                </button>
+                
+                <!-- INSTRUCTIONS SECTION (collapsible) -->
+                <div id="instructionsPanel" class="hidden mt-4 bg-green-50 rounded-lg p-4 border border-green-200">
+                    <h3 class="font-bold text-green-800 mb-3">📖 Instructions</h3>
+                    
+                    <div class="space-y-4 text-sm">
+                        <div>
+                            <h4 class="font-semibold text-green-700 mb-1">1. Explore the Map</h4>
+                            <p class="text-gray-700">Organizations are displayed as colored dots on the map. Each color represents a different organization type (see the legend below the map).</p>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-semibold text-green-700 mb-1">2. Click an Organization to See Connections</h4>
+                            <p class="text-gray-700">When you click on any organization dot, the tool will:</p>
+                            <ul class="list-disc list-inside ml-4 text-gray-600 mt-1">
+                                <li>Draw lines connecting it to its top partnership matches</li>
+                                <li>Display detailed match information below the map</li>
+                                <li>Show any unmet needs that have no network partners</li>
+                            </ul>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-semibold text-green-700 mb-1">3. Understanding Connection Lines</h4>
+                            <p class="text-gray-700">Line colors show the relationship direction:</p>
+                            <ul class="list-disc list-inside ml-4 text-gray-600 mt-1">
+                                <li><span class="text-orange-600 font-semibold">Orange:</span> The partner can provide resources the selected organization needs</li>
+                                <li><span class="text-green-600 font-semibold">Green:</span> The selected organization can provide resources the partner needs</li>
+                                <li><span class="text-blue-600 font-semibold">Blue:</span> Mutual benefit—both organizations can help each other equally</li>
+                            </ul>
+                            <p class="text-gray-700 mt-1">Line thickness and opacity indicate match strength—thicker, more solid lines mean stronger compatibility.</p>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-semibold text-green-700 mb-1">4. How Matches Are Scored</h4>
+                            <p class="text-gray-700">The matching algorithm calculates compatibility points based on:</p>
+                            <div class="bg-white rounded p-3 mt-2 border">
+                                <p class="font-semibold text-gray-800 mb-2">Point System:</p>
+                                <ul class="text-gray-600 space-y-1">
+                                    <li>• <strong>High-priority need</strong> matched with <strong>Extensive resource</strong> = <span class="text-green-700 font-bold">10 points</span></li>
+                                    <li>• <strong>High-priority need</strong> matched with <strong>Some resource</strong> = <span class="text-green-700 font-bold">7 points</span></li>
+                                    <li>• <strong>Moderate need</strong> matched with <strong>Extensive resource</strong> = <span class="text-green-700 font-bold">6 points</span></li>
+                                    <li>• <strong>Moderate need</strong> matched with <strong>Some resource</strong> = <span class="text-green-700 font-bold">4 points</span></li>
+                                    <li>• <strong>Low-priority need</strong> matched with <strong>Extensive resource</strong> = <span class="text-green-700 font-bold">3 points</span></li>
+                                    <li>• <strong>Low-priority need</strong> matched with <strong>Some resource</strong> = <span class="text-green-700 font-bold">2 points</span></li>
+                                    <li>• <strong>Same county bonus</strong> = <span class="text-blue-700 font-bold">+5 points</span></li>
+                                </ul>
+                            </div>
+                            <p class="text-gray-600 mt-2 text-xs">Points are awarded in both directions: when the selected organization's needs match a partner's resources AND when the selected organization's resources match a partner's needs.</p>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-semibold text-green-700 mb-1">5. Export Data</h4>
+                            <p class="text-gray-700">Use the export buttons to download organization and match data in JSON or CSV format for further analysis.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
             
             <div class="flex flex-wrap justify-center gap-4 mb-6">
                 <button onclick="toggleNetworkView()" id="btnNetwork" class="btn px-6 py-2 rounded-lg font-semibold bg-blue-600 text-white">
                     Toggle Network View
                 </button>
-                <button onclick="exportOrganizations()" class="btn px-6 py-2 rounded-lg font-semibold bg-purple-600 text-white">
-                    Export Organizations
-                </button>
-                <button onclick="exportMatches()" class="btn px-6 py-2 rounded-lg font-semibold bg-indigo-600 text-white">
-                    Export Matches
-                </button>
+                <div class="relative inline-block">
+                    <button onclick="toggleExportMenu('orgExport')" class="btn px-6 py-2 rounded-lg font-semibold bg-purple-600 text-white">
+                        Export Organizations ▾
+                    </button>
+                    <div id="orgExportMenu" class="hidden absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border z-50 min-w-max">
+                        <button onclick="exportOrganizationsJSON(); hideExportMenus();" class="block w-full text-left px-4 py-2 hover:bg-purple-50 text-gray-700 rounded-t-lg">
+                            📄 JSON Format
+                        </button>
+                        <button onclick="exportOrganizationsCSV(); hideExportMenus();" class="block w-full text-left px-4 py-2 hover:bg-purple-50 text-gray-700 rounded-b-lg border-t">
+                            📊 CSV Format (Excel/Sheets)
+                        </button>
+                    </div>
+                </div>
+                <div class="relative inline-block">
+                    <button onclick="toggleExportMenu('matchExport')" class="btn px-6 py-2 rounded-lg font-semibold bg-indigo-600 text-white">
+                        Export Matches ▾
+                    </button>
+                    <div id="matchExportMenu" class="hidden absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border z-50 min-w-max">
+                        <button onclick="exportMatchesJSON(); hideExportMenus();" class="block w-full text-left px-4 py-2 hover:bg-indigo-50 text-gray-700 rounded-t-lg">
+                            📄 JSON Format
+                        </button>
+                        <button onclick="exportMatchesCSV(); hideExportMenus();" class="block w-full text-left px-4 py-2 hover:bg-indigo-50 text-gray-700 rounded-b-lg border-t">
+                            📊 CSV Format (Excel/Sheets)
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -93,22 +193,22 @@
                     <div class="flex items-center gap-3">
                         <div style="width: 60px; height: 4px; background: linear-gradient(to right, rgba(255, 140, 0, 0.3), rgba(255, 140, 0, 1));"></div>
                         <div>
-                            <div class="font-semibold text-sm">Orange Lines - They Help You</div>
-                            <div class="text-xs text-gray-600">Partner provides resources you need</div>
+                            <div class="font-semibold text-sm">Orange Lines - Partner Helps Selected Org</div>
+                            <div class="text-xs text-gray-600">Partner provides resources the selected organization needs</div>
                         </div>
                     </div>
                     <div class="flex items-center gap-3">
                         <div style="width: 60px; height: 4px; background: linear-gradient(to right, rgba(34, 200, 34, 0.3), rgba(34, 200, 34, 1));"></div>
                         <div>
-                            <div class="font-semibold text-sm">Green Lines - You Help Them</div>
-                            <div class="text-xs text-gray-600">You provide resources they need</div>
+                            <div class="font-semibold text-sm">Green Lines - Selected Org Helps Partner</div>
+                            <div class="text-xs text-gray-600">Selected organization provides resources the partner needs</div>
                         </div>
                     </div>
                     <div class="flex items-center gap-3">
                         <div style="width: 60px; height: 4px; background: linear-gradient(to right, rgba(100, 150, 255, 0.3), rgba(100, 150, 255, 1));"></div>
                         <div>
                             <div class="font-semibold text-sm">Blue Lines - Mutual Benefit</div>
-                            <div class="text-xs text-gray-600">Equal exchange of resources</div>
+                            <div class="text-xs text-gray-600">Equal exchange of resources between organizations</div>
                         </div>
                     </div>
                     <div class="flex items-start gap-3 mt-4 pt-4 border-t">
@@ -144,11 +244,21 @@
             </div>
 
             <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
-                <h4 class="font-bold text-blue-900 mb-2">GitHub Repository</h4>
-                <div class="text-sm text-blue-800 space-y-2">
-                    <p><strong>Repository:</strong> pluricalifornia/cc-food-system-building-tool</p>
-                    <p><strong>Live Site:</strong> https://pluricalifornia.github.io/cc-food-system-building-tool</p>
-                    <p><strong>County Data:</strong> Loaded from data/CA_COUNTIES.json</p>
+                <h4 class="font-bold text-blue-900 mb-3">About This Tool & Data</h4>
+                <div class="text-sm text-blue-800 space-y-3">
+                    <div>
+                        <p class="font-semibold">GitHub Repository:</p>
+                        <p>pluricalifornia/cc-food-system-building-tool</p>
+                        <p><strong>Live Site:</strong> https://pluricalifornia.github.io/cc-food-system-building-tool</p>
+                    </div>
+                    <div class="pt-2 border-t border-blue-200">
+                        <p class="font-semibold mb-1">📁 Data Export Options:</p>
+                        <ul class="list-disc list-inside space-y-1 text-blue-700">
+                            <li><strong>Organizations (JSON/CSV)</strong> — All 100 organizations with their names, types, counties, locations, needs (with priority levels), and resources (with availability levels)</li>
+                            <li><strong>Matches (JSON/CSV)</strong> — Top 10 partnership matches for each organization, including match scores and the scoring methodology</li>
+                        </ul>
+                        <p class="mt-2 text-xs text-blue-600">CSV files can be opened directly in Excel, Google Sheets, or any spreadsheet application.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1907,6 +2017,7 @@
             });
             
             let html = `<div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div class="text-xs font-semibold text-green-600 uppercase tracking-wide mb-1">Selected Organization</div>
                 <h2 class="text-2xl font-bold mb-2">${org.name}</h2>
                 <p class="text-gray-600 mb-4">${org.type} • ${org.county}</p>
                 <div class="grid md:grid-cols-2 gap-6">
@@ -1981,7 +2092,7 @@
                     if (match.type === "need-resource") {
                         html += `<div class="flex items-start gap-3 text-sm">
                             <div class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-semibold flex-shrink-0">
-                                YOU NEED
+                                SELECTED ORG NEEDS
                             </div>
                             <div class="flex-1">
                                 <span class="font-medium">${match.item}</span>
@@ -1993,7 +2104,7 @@
                     } else {
                         html += `<div class="flex items-start gap-3 text-sm">
                             <div class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-semibold flex-shrink-0">
-                                YOU PROVIDE
+                                SELECTED ORG PROVIDES
                             </div>
                             <div class="flex-1">
                                 <span class="font-medium">${match.item}</span>
@@ -2026,9 +2137,76 @@
             }
         }
 
-        function exportOrganizations() {
+        // Toggle instructions panel
+        function toggleInstructions() {
+            const panel = document.getElementById('instructionsPanel');
+            const icon = document.getElementById('instructionsToggleIcon');
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                icon.textContent = '▼';
+            } else {
+                panel.classList.add('hidden');
+                icon.textContent = '▶';
+            }
+        }
+
+        // Export menu toggles
+        function toggleExportMenu(menuType) {
+            hideExportMenus();
+            const menuId = menuType === 'orgExport' ? 'orgExportMenu' : 'matchExportMenu';
+            document.getElementById(menuId).classList.toggle('hidden');
+        }
+
+        function hideExportMenus() {
+            document.getElementById('orgExportMenu').classList.add('hidden');
+            document.getElementById('matchExportMenu').classList.add('hidden');
+        }
+
+        // Close menus when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.relative.inline-block')) {
+                hideExportMenus();
+            }
+        });
+
+        // JSON Export Functions
+        function exportOrganizationsJSON() {
+            const exportData = {
+                metadata: {
+                    title: "Central Coast Food System Organizations",
+                    description: "Organizations participating in the Central Coast Food System Network",
+                    exportDate: new Date().toISOString(),
+                    totalOrganizations: appState.organizations.length,
+                    counties: ["Monterey", "Santa Cruz", "San Benito", "Santa Barbara", "San Luis Obispo", "Ventura"],
+                    dataFields: {
+                        id: "Unique identifier for the organization",
+                        name: "Organization name",
+                        type: "Organization type (Farmer/Producer, Processor, Distributor, etc.)",
+                        county: "County where the organization is located",
+                        lat: "Latitude coordinate",
+                        lng: "Longitude coordinate",
+                        needs: "Object containing the organization's needs with priority levels (High, Moderate, Low)",
+                        resources: "Object containing the organization's available resources with availability levels (Extensive, Some)",
+                        topNeeds: "Array of the organization's top priority needs",
+                        topResources: "Array of the organization's main available resources"
+                    }
+                },
+                organizations: appState.organizations.map(org => ({
+                    id: org.id,
+                    name: org.name,
+                    type: org.type,
+                    county: org.county,
+                    lat: org.lat,
+                    lng: org.lng,
+                    needs: org.needs,
+                    resources: org.resources,
+                    topNeeds: org.topNeeds,
+                    topResources: org.topResources
+                }))
+            };
+            
             const blob = new Blob(
-                [JSON.stringify(appState.organizations, null, 2)], 
+                [JSON.stringify(exportData, null, 2)], 
                 { type: 'application/json' }
             );
             const a = document.createElement('a');
@@ -2037,30 +2215,98 @@
             a.click();
         }
 
-        function exportMatches() {
-            const matches = appState.organizations.map(org => ({
-                organization: { 
-                    id: org.id, 
-                    name: org.name, 
-                    type: org.type, 
-                    county: org.county 
-                },
-                topMatches: getMatches(org.id).slice(0, 10).map(m => ({
-                    matchedOrg: { 
-                        id: m.org.id, 
-                        name: m.org.name 
+        function exportOrganizationsCSV() {
+            // Create CSV header
+            let csv = 'ID,Name,Type,County,Latitude,Longitude,Top Needs,Top Resources,All Needs (with levels),All Resources (with levels)\n';
+            
+            appState.organizations.forEach(org => {
+                const needsStr = Object.entries(org.needs).map(([k,v]) => `${k}: ${v}`).join('; ');
+                const resourcesStr = Object.entries(org.resources).map(([k,v]) => `${k}: ${v}`).join('; ');
+                
+                csv += `"${org.id}","${org.name}","${org.type}","${org.county}",${org.lat},${org.lng},"${org.topNeeds.join('; ')}","${org.topResources.join('; ')}","${needsStr}","${resourcesStr}"\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'food-system-organizations.csv';
+            a.click();
+        }
+
+        function exportMatchesJSON() {
+            const exportData = {
+                metadata: {
+                    title: "Central Coast Food System Partnership Matches",
+                    description: "Potential partnership matches between food system organizations based on complementary needs and resources",
+                    exportDate: new Date().toISOString(),
+                    totalOrganizations: appState.organizations.length,
+                    scoringSystem: {
+                        description: "Points are awarded when an organization's needs match another's resources",
+                        highNeed_extensiveResource: 10,
+                        highNeed_someResource: 7,
+                        moderateNeed_extensiveResource: 6,
+                        moderateNeed_someResource: 4,
+                        lowNeed_extensiveResource: 3,
+                        lowNeed_someResource: 2,
+                        sameCountyBonus: 5
                     },
-                    matchScore: m.matchData.score
+                    dataFields: {
+                        organization: "The reference organization for which matches are calculated",
+                        topMatches: "Array of top 10 matching organizations with scores and match details"
+                    }
+                },
+                matches: appState.organizations.map(org => ({
+                    organization: { 
+                        id: org.id, 
+                        name: org.name, 
+                        type: org.type, 
+                        county: org.county 
+                    },
+                    topMatches: getMatches(org.id).slice(0, 10).map(m => ({
+                        matchedOrg: { 
+                            id: m.org.id, 
+                            name: m.org.name,
+                            type: m.org.type,
+                            county: m.org.county
+                        },
+                        matchScore: m.matchData.score,
+                        matchDetails: m.matchData.matches.map(match => ({
+                            type: match.type === 'need-resource' ? 'Selected org needs, partner provides' : 'Selected org provides, partner needs',
+                            item: match.item,
+                            level: match.type === 'need-resource' ? 
+                                `Need: ${match.needLevel}, Resource: ${match.resourceLevel}` :
+                                `Resource: ${match.resourceLevel}, Need: ${match.needLevel}`
+                        }))
+                    }))
                 }))
-            }));
+            };
             
             const blob = new Blob(
-                [JSON.stringify(matches, null, 2)], 
+                [JSON.stringify(exportData, null, 2)], 
                 { type: 'application/json' }
             );
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = 'food-system-matches.json';
+            a.click();
+        }
+
+        function exportMatchesCSV() {
+            // Create CSV with flattened match data
+            let csv = 'Organization ID,Organization Name,Organization Type,Organization County,Match Rank,Matched Org ID,Matched Org Name,Matched Org Type,Matched Org County,Match Score,Same County\n';
+            
+            appState.organizations.forEach(org => {
+                const matches = getMatches(org.id).slice(0, 10);
+                matches.forEach((m, index) => {
+                    const sameCounty = org.county === m.org.county ? 'Yes' : 'No';
+                    csv += `"${org.id}","${org.name}","${org.type}","${org.county}",${index + 1},"${m.org.id}","${m.org.name}","${m.org.type}","${m.org.county}",${m.matchData.score},"${sameCounty}"\n`;
+                });
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'food-system-matches.csv';
             a.click();
         }
 
