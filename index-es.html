@@ -1,0 +1,2344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Red de Conexiones del Sistema Alimentario de la Costa Central</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
+    <script src="https://js.arcgis.com/4.28/"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        .btn {
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        #mapDiv {
+            height: 600px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-green-50 to-blue-50">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-green-800 mb-4">
+                Red de Conexiones del Sistema Alimentario de la Costa Central
+            </h1>
+            <p class="text-lg text-gray-600 max-w-3xl mx-auto mb-2">
+                Mapa interactivo de 100 organizaciones en 6 condados de la Costa Central
+            </p>
+            
+            <!-- LANGUAGE TOGGLE -->
+            <div class="flex justify-center mb-4">
+                <a href="index.html" class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-medium transition-colors">
+                    🌐 View in English
+                </a>
+            </div>
+            
+            <!-- INTRODUCTION SECTION -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6 text-left max-w-4xl mx-auto">
+                <h2 class="text-xl font-bold text-green-700 mb-3 flex items-center gap-2">
+                    <span>🌱</span> Bienvenido a la Red de Conexiones
+                </h2>
+                <div class="text-gray-700 space-y-3">
+                    <p>
+                        <strong>Propósito:</strong> Esta herramienta ayuda a las organizaciones e individuos del sistema alimentario de la Costa Central de California 
+                        a descubrir posibles alianzas al emparejar sus necesidades con los recursos disponibles de otras organizaciones, y viceversa.
+                    </p>
+                    <p>
+                        <strong>Objetivo:</strong> Fortalecer los sistemas alimentarios regionales facilitando conexiones entre agricultores, procesadores, 
+                        distribuidores, organizaciones sin fines de lucro, instituciones educativas, cooperativas y proveedores de servicios—mejorando en última instancia 
+                        el acceso a alimentos, la sostenibilidad y la resiliencia económica en nuestras comunidades.
+                    </p>
+                    <p>
+                        <strong>Cobertura:</strong> Condados de Monterey, Santa Cruz, San Benito, Santa Barbara, San Luis Obispo y Ventura.
+                    </p>
+                </div>
+                <button onclick="toggleInstructions()" class="mt-4 text-green-600 hover:text-green-800 font-semibold flex items-center gap-2">
+                    <span id="instructionsToggleIcon">▶</span> Cómo Usar Esta Herramienta
+                </button>
+                
+                <!-- INSTRUCTIONS SECTION (collapsible) -->
+                <div id="instructionsPanel" class="hidden mt-4 bg-green-50 rounded-lg p-4 border border-green-200">
+                    <h3 class="font-bold text-green-800 mb-3">📖 Instrucciones</h3>
+                    
+                    <div class="space-y-4 text-sm">
+                        <div>
+                            <h4 class="font-semibold text-green-700 mb-1">1. Explorar el Mapa</h4>
+                            <p class="text-gray-700">Las organizaciones se muestran como puntos de colores en el mapa. Cada color representa un tipo diferente de organización (vea la leyenda debajo del mapa).</p>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-semibold text-green-700 mb-1">2. Haga Clic en una Organización para Ver Conexiones</h4>
+                            <p class="text-gray-700">Cuando hace clic en cualquier punto de organización, la herramienta:</p>
+                            <ul class="list-disc list-inside ml-4 text-gray-600 mt-1">
+                                <li>Dibujará líneas conectándola con sus mejores coincidencias de alianza</li>
+                                <li>Mostrará información detallada de coincidencias debajo del mapa</li>
+                                <li>Mostrará cualquier necesidad no satisfecha que no tenga socios en la red</li>
+                            </ul>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-semibold text-green-700 mb-1">3. Entendiendo las Líneas de Conexión</h4>
+                            <p class="text-gray-700">Los colores de las líneas muestran la dirección de la relación:</p>
+                            <ul class="list-disc list-inside ml-4 text-gray-600 mt-1">
+                                <li><span class="text-orange-600 font-semibold">Naranja:</span> El socio puede proporcionar recursos que la organización seleccionada necesita</li>
+                                <li><span class="text-green-600 font-semibold">Verde:</span> La organización seleccionada puede proporcionar recursos que el socio necesita</li>
+                                <li><span class="text-blue-600 font-semibold">Azul:</span> Beneficio mutuo—ambas organizaciones pueden ayudarse mutuamente</li>
+                            </ul>
+                            <p class="text-gray-700 mt-1">El grosor y la opacidad de la línea indican la fuerza de la coincidencia—líneas más gruesas y sólidas significan mayor compatibilidad.</p>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-semibold text-green-700 mb-1">4. Cómo se Califican las Coincidencias</h4>
+                            <p class="text-gray-700">El algoritmo de emparejamiento calcula puntos de compatibilidad basándose en:</p>
+                            <div class="bg-white rounded p-3 mt-2 border">
+                                <p class="font-semibold text-gray-800 mb-2">Sistema de Puntos:</p>
+                                <ul class="text-gray-600 space-y-1">
+                                    <li>• <strong>Necesidad de alta prioridad</strong> emparejada con <strong>Recurso extenso</strong> = <span class="text-green-700 font-bold">10 puntos</span></li>
+                                    <li>• <strong>Necesidad de alta prioridad</strong> emparejada con <strong>Algo de recurso</strong> = <span class="text-green-700 font-bold">7 puntos</span></li>
+                                    <li>• <strong>Necesidad moderada</strong> emparejada con <strong>Recurso extenso</strong> = <span class="text-green-700 font-bold">6 puntos</span></li>
+                                    <li>• <strong>Necesidad moderada</strong> emparejada con <strong>Algo de recurso</strong> = <span class="text-green-700 font-bold">4 puntos</span></li>
+                                    <li>• <strong>Necesidad de baja prioridad</strong> emparejada con <strong>Recurso extenso</strong> = <span class="text-green-700 font-bold">3 puntos</span></li>
+                                    <li>• <strong>Necesidad de baja prioridad</strong> emparejada con <strong>Algo de recurso</strong> = <span class="text-green-700 font-bold">2 puntos</span></li>
+                                    <li>• <strong>Bono por mismo condado</strong> = <span class="text-blue-700 font-bold">+5 puntos</span></li>
+                                </ul>
+                            </div>
+                            <p class="text-gray-600 mt-2 text-xs">Los puntos se otorgan en ambas direcciones: cuando las necesidades de la organización seleccionada coinciden con los recursos de un socio Y cuando los recursos de la organización seleccionada coinciden con las necesidades de un socio.</p>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-semibold text-green-700 mb-1">5. Exportar Datos</h4>
+                            <p class="text-gray-700">Use los botones de exportación para descargar datos de organizaciones y coincidencias en formato JSON o CSV para análisis adicional.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- SURVEY DOWNLOAD SECTION -->
+            <div class="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg shadow-lg p-6 mb-6 max-w-4xl mx-auto border-2 border-green-200">
+                <h2 class="text-xl font-bold text-green-700 mb-3 flex items-center gap-2">
+                    <span>📋</span> Únase a la Red
+                </h2>
+                <p class="text-gray-700 mb-4">
+                    ¿Desea agregar su organización o a usted mismo a la Red de Conexiones? Complete nuestra encuesta para ser incluido en el sistema de emparejamiento de alianzas.
+                </p>
+                <div class="flex flex-wrap justify-center gap-4">
+                    <a href="Encuesta_Sistema_Alimentario_Costa_Central.docx" download class="btn px-6 py-3 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 inline-flex items-center gap-2">
+                        📄 Descargar Encuesta (Español)
+                    </a>
+                    <a href="Central_Coast_Food_System_Survey.docx" download class="btn px-6 py-3 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 inline-flex items-center gap-2">
+                        📄 Download Survey (English)
+                    </a>
+                </div>
+                <p class="text-sm text-gray-500 mt-3">
+                    La encuesta puede ser completada por organizaciones o individuos. Devuelva las encuestas completadas al coordinador de la red.
+                </p>
+            </div>
+            
+            <div class="flex flex-wrap justify-center gap-4 mb-6">
+                <button onclick="toggleNetworkView()" id="btnNetwork" class="btn px-6 py-2 rounded-lg font-semibold bg-blue-600 text-white">
+                    Alternar Vista de Red
+                </button>
+                <div class="relative inline-block">
+                    <button onclick="toggleExportMenu('orgExport')" class="btn px-6 py-2 rounded-lg font-semibold bg-purple-600 text-white">
+                        Exportar Organizaciones ▾
+                    </button>
+                    <div id="orgExportMenu" class="hidden absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border z-50 min-w-max">
+                        <button onclick="exportOrganizationsJSON(); hideExportMenus();" class="block w-full text-left px-4 py-2 hover:bg-purple-50 text-gray-700 rounded-t-lg">
+                            📄 Formato JSON
+                        </button>
+                        <button onclick="exportOrganizationsCSV(); hideExportMenus();" class="block w-full text-left px-4 py-2 hover:bg-purple-50 text-gray-700 rounded-b-lg border-t">
+                            📊 Formato CSV (Excel/Sheets)
+                        </button>
+                    </div>
+                </div>
+                <div class="relative inline-block">
+                    <button onclick="toggleExportMenu('matchExport')" class="btn px-6 py-2 rounded-lg font-semibold bg-indigo-600 text-white">
+                        Exportar Coincidencias ▾
+                    </button>
+                    <div id="matchExportMenu" class="hidden absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border z-50 min-w-max">
+                        <button onclick="exportMatchesJSON(); hideExportMenus();" class="block w-full text-left px-4 py-2 hover:bg-indigo-50 text-gray-700 rounded-t-lg">
+                            📄 Formato JSON
+                        </button>
+                        <button onclick="exportMatchesCSV(); hideExportMenus();" class="block w-full text-left px-4 py-2 hover:bg-indigo-50 text-gray-700 rounded-b-lg border-t">
+                            📊 Formato CSV (Excel/Sheets)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="mainView">
+            <div id="mapDiv" class="w-full rounded-lg shadow-lg border-4 border-white mb-6"></div>
+            
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h3 class="font-bold text-lg mb-4">Tipos de Organización</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 rounded-full" style="background-color: rgb(34, 139, 34);"></div>
+                        <span>Agricultor/Productor</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 rounded-full" style="background-color: rgb(255, 140, 0);"></div>
+                        <span>Procesador</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 rounded-full" style="background-color: rgb(30, 144, 255);"></div>
+                        <span>Distribuidor</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 rounded-full" style="background-color: rgb(147, 112, 219);"></div>
+                        <span>Sin Fines de Lucro</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 rounded-full" style="background-color: rgb(220, 20, 60);"></div>
+                        <span>Educación</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 rounded-full" style="background-color: rgb(255, 215, 0);"></div>
+                        <span>Cooperativa</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 rounded-full" style="background-color: rgb(64, 224, 208);"></div>
+                        <span>Proveedor de Servicios</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h3 class="font-bold text-lg mb-4">Leyenda de Conexiones de Red</h3>
+                <p class="text-sm text-gray-600 mb-4">Haga clic en cualquier organización para ver sus conexiones de red. El color y grosor de la línea muestran el tipo y fuerza de la coincidencia.</p>
+                <div class="space-y-3">
+                    <div class="flex items-center gap-3">
+                        <div style="width: 60px; height: 4px; background: linear-gradient(to right, rgba(255, 140, 0, 0.3), rgba(255, 140, 0, 1));"></div>
+                        <div>
+                            <div class="font-semibold text-sm">Líneas Naranjas - El Socio Ayuda a la Org. Seleccionada</div>
+                            <div class="text-xs text-gray-600">El socio proporciona recursos que la organización seleccionada necesita</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div style="width: 60px; height: 4px; background: linear-gradient(to right, rgba(34, 200, 34, 0.3), rgba(34, 200, 34, 1));"></div>
+                        <div>
+                            <div class="font-semibold text-sm">Líneas Verdes - La Org. Seleccionada Ayuda al Socio</div>
+                            <div class="text-xs text-gray-600">La organización seleccionada proporciona recursos que el socio necesita</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div style="width: 60px; height: 4px; background: linear-gradient(to right, rgba(100, 150, 255, 0.3), rgba(100, 150, 255, 1));"></div>
+                        <div>
+                            <div class="font-semibold text-sm">Líneas Azules - Beneficio Mutuo</div>
+                            <div class="text-xs text-gray-600">Intercambio equitativo de recursos entre organizaciones</div>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3 mt-4 pt-4 border-t">
+                        <div class="flex flex-col gap-2">
+                            <div style="width: 60px; height: 1px; background: rgba(100, 150, 255, 0.3);"></div>
+                            <div style="width: 60px; height: 3px; background: rgba(100, 150, 255, 0.7);"></div>
+                            <div style="width: 60px; height: 5px; background: rgba(100, 150, 255, 1);"></div>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-sm">Grosor de Línea = Fuerza de Coincidencia</div>
+                            <div class="text-xs text-gray-600">Líneas más gruesas y opacas indican coincidencias más fuertes con puntuaciones de compatibilidad más altas</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <h3 class="font-bold text-lg mb-4">Quick Stats</h3>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div class="text-center p-4 bg-green-50 rounded-lg">
+                        <div class="text-3xl font-bold text-green-700">100</div>
+                        <div class="text-sm text-gray-600">Organizations</div>
+                    </div>
+                    <div class="text-center p-4 bg-blue-50 rounded-lg">
+                        <div class="text-3xl font-bold text-blue-700">6</div>
+                        <div class="text-sm text-gray-600">Counties</div>
+                    </div>
+                    <div class="text-center p-4 bg-purple-50 rounded-lg">
+                        <div class="text-3xl font-bold text-purple-700" id="totalMatches">0</div>
+                        <div class="text-sm text-gray-600">Potential Matches</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
+                <h4 class="font-bold text-blue-900 mb-3">About This Tool & Data</h4>
+                <div class="text-sm text-blue-800 space-y-3">
+                    <div>
+                        <p class="font-semibold">GitHub Repository:</p>
+                        <p>pluricalifornia/cc-food-system-building-tool</p>
+                        <p><strong>Live Site:</strong> https://pluricalifornia.github.io/cc-food-system-building-tool</p>
+                    </div>
+                    <div class="pt-2 border-t border-blue-200">
+                        <p class="font-semibold mb-1">📁 Data Export Options:</p>
+                        <ul class="list-disc list-inside space-y-1 text-blue-700">
+                            <li><strong>Organizations (JSON/CSV)</strong> — All 100 organizations with their names, types, counties, locations, needs (with priority levels), and resources (with availability levels)</li>
+                            <li><strong>Matches (JSON/CSV)</strong> — Top 10 partnership matches for each organization, including match scores and the scoring methodology</li>
+                        </ul>
+                        <p class="mt-2 text-xs text-blue-600">CSV files can be opened directly in Excel, Google Sheets, or any spreadsheet application.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="matchView" class="hidden">
+            <button onclick="showMapView()" class="text-green-600 hover:text-green-800 font-semibold flex items-center gap-2 mb-6 text-lg">
+                ← Back to Map Only
+            </button>
+            <div id="matchContent"></div>
+        </div>
+        
+        <div id="detailsView" class="hidden">
+            <div class="bg-white rounded-lg shadow-lg p-4 mb-6">
+                <button onclick="clearSelection()" class="text-green-600 hover:text-green-800 font-semibold flex items-center gap-2 text-lg">
+                    ← Clear Selection
+                </button>
+            </div>
+            <div id="detailsContent"></div>
+        </div>
+    </div>
+
+    <script>
+        let appState = {
+            organizations: [],
+            countyBoundaries: {},
+            view: null,
+            layers: {
+                boundary: null,
+                network: null,
+                org: null
+            },
+            showNetwork: false,
+            selectedOrg: null
+        };
+
+        const countyLocations = {
+            "Monterey County": { 
+                lat: 36.4, 
+                lng: -121.3, 
+                bounds: { minLat: 35.8, maxLat: 37.0, minLng: -122.0, maxLng: -120.2 } 
+            },
+            "Santa Cruz County": { 
+                lat: 37.0, 
+                lng: -122.0, 
+                bounds: { minLat: 36.8, maxLat: 37.3, minLng: -122.3, maxLng: -121.6 } 
+            },
+            "San Benito County": { 
+                lat: 36.6, 
+                lng: -121.0, 
+                bounds: { minLat: 36.2, maxLat: 36.9, minLng: -121.5, maxLng: -120.4 } 
+            },
+            "Santa Barbara County": { 
+                lat: 34.5, 
+                lng: -120.0, 
+                bounds: { minLat: 34.4, maxLat: 35.0, minLng: -120.7, maxLng: -119.5 } 
+            },
+            "San Luis Obispo County": { 
+                lat: 35.3, 
+                lng: -120.5, 
+                bounds: { minLat: 35.0, maxLat: 35.8, minLng: -121.3, maxLng: -119.8 } 
+            },
+            "Ventura County": { 
+                lat: 34.4, 
+                lng: -119.1, 
+                bounds: { minLat: 34.0, maxLat: 34.7, minLng: -119.5, maxLng: -118.6 } 
+            }
+        };
+
+        const typeColors = {
+            "Farmer/Fisher/Food Producer": [34, 139, 34],
+            "Food Processor": [255, 140, 0],
+            "Distributor": [30, 144, 255],
+            "Nonprofit Organization": [147, 112, 219],
+            "Educational Institution": [220, 20, 60],
+            "Cooperative": [255, 215, 0],
+            "For-profit Service Provider": [64, 224, 208]
+        };
+
+        const countyColors = {
+            'Monterey': '#2E86AB',
+            'Santa Cruz': '#A23B72',
+            'Santa Barbara': '#F18F01',
+            'San Benito': '#C73E1D',
+            'Ventura': '#5D737E',
+            'San Luis Obispo': '#7A4F9A'
+        };
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? [
+                parseInt(result[1], 16),
+                parseInt(result[2], 16),
+                parseInt(result[3], 16)
+            ] : [200, 200, 200];
+        }
+
+        function isPointInPolygon(point, polygon) {
+            const [x, y] = point;
+            let inside = false;
+            for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+                const [xi, yi] = polygon[i];
+                const [xj, yj] = polygon[j];
+                if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+                    inside = !inside;
+                }
+            }
+            return inside;
+        }
+
+        function generateLocation(county) {
+            const boundary = appState.countyBoundaries[county];
+            
+            if (boundary && boundary.length > 0) {
+                let minLng = Infinity, maxLng = -Infinity;
+                let minLat = Infinity, maxLat = -Infinity;
+                
+                boundary.forEach(coord => {
+                    minLng = Math.min(minLng, coord[0]);
+                    maxLng = Math.max(maxLng, coord[0]);
+                    minLat = Math.min(minLat, coord[1]);
+                    maxLat = Math.max(maxLat, coord[1]);
+                });
+                
+                for (let i = 0; i < 100; i++) {
+                    const point = [
+                        minLng + Math.random() * (maxLng - minLng),
+                        minLat + Math.random() * (maxLat - minLat)
+                    ];
+                    if (isPointInPolygon(point, boundary)) {
+                        return { lat: point[1], lng: point[0] };
+                    }
+                }
+            }
+            
+            const bounds = countyLocations[county]?.bounds || { 
+                minLat: 35, maxLat: 36, minLng: -121, maxLng: -120 
+            };
+            return {
+                lat: bounds.minLat + Math.random() * (bounds.maxLat - bounds.minLat),
+                lng: bounds.minLng + Math.random() * (bounds.maxLng - bounds.minLng)
+            };
+        }
+
+        function generateOrganizations() {
+            const orgs = [
+                // MONTEREY COUNTY (15 orgs)
+                { 
+                    name: "Tierra Nueva Farm", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Monterey County",
+                    needs: {
+                        "Marketing and brand development": "High", 
+                        "E-commerce platform development": "High", 
+                        "Grant writing and fundraising": "Moderate", 
+                        "Food safety certification": "Moderate"
+                    },
+                    resources: {
+                        "Production planning and crop scheduling": "Extensive", 
+                        "Sustainable farming practices": "Extensive", 
+                        "Quality control and grading": "Some"
+                    }
+                },
+                { 
+                    name: "Salinas Valley Fresh Pack", 
+                    type: "Food Processor", 
+                    county: "Monterey County",
+                    needs: {
+                        "Technology integration": "Moderate", 
+                        "Marketing and brand development": "Moderate", 
+                        "Grant writing and fundraising": "High"
+                    },
+                    resources: {
+                        "Processing and packaging capabilities": "Extensive", 
+                        "Food safety certification": "Extensive", 
+                        "Cold storage facility access": "Some", 
+                        "Quality control and grading": "Extensive"
+                    }
+                },
+                { 
+                    name: "Farm to Table Logistics", 
+                    type: "Distributor", 
+                    county: "Monterey County",
+                    needs: {
+                        "Business planning and strategy": "Moderate", 
+                        "Access to capital/loan assistance": "High"
+                    },
+                    resources: {
+                        "Transportation and delivery services": "Extensive", 
+                        "Distribution and logistics planning": "Extensive", 
+                        "Cold storage facility access": "Some"
+                    }
+                },
+                { 
+                    name: "Farm Worker Support Center", 
+                    type: "Nonprofit Organization", 
+                    county: "Monterey County",
+                    needs: {
+                        "Access to capital/loan assistance": "High", 
+                        "Technology integration": "High"
+                    },
+                    resources: {
+                        "Grant writing and fundraising": "Extensive", 
+                        "Partnership development": "Extensive"
+                    }
+                },
+                { 
+                    name: "Pajaro Valley Growers Co-op", 
+                    type: "Cooperative", 
+                    county: "Monterey County",
+                    needs: {
+                        "Cold storage facility access": "High", 
+                        "Processing and packaging capabilities": "High", 
+                        "E-commerce platform development": "High"
+                    },
+                    resources: {
+                        "Partnership development": "Extensive", 
+                        "Cooperative formation": "Extensive", 
+                        "Marketing and brand development": "Some"
+                    }
+                },
+                { 
+                    name: "Food Safety Consulting Group", 
+                    type: "For-profit Service Provider", 
+                    county: "Monterey County",
+                    needs: {
+                        "Marketing and brand development": "Moderate"
+                    },
+                    resources: {
+                        "Food safety certification": "Extensive", 
+                        "Business planning and strategy": "Some"
+                    }
+                },
+                { 
+                    name: "Castroville Artichoke Co-op", 
+                    type: "Cooperative", 
+                    county: "Monterey County",
+                    needs: {
+                        "E-commerce platform development": "High", 
+                        "Institutional sales": "High"
+                    },
+                    resources: {
+                        "Cooperative formation": "Extensive", 
+                        "Quality control and grading": "Some"
+                    }
+                },
+                { 
+                    name: "Monterey Bay Aquarium Seafood Watch", 
+                    type: "Nonprofit Organization", 
+                    county: "Monterey County",
+                    needs: {
+                        "Partnership development": "Moderate"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Marketing and brand development": "Extensive"
+                    }
+                },
+                { 
+                    name: "Hartnell College Agriculture", 
+                    type: "Educational Institution", 
+                    county: "Monterey County",
+                    needs: {
+                        "Cold storage facility access": "Moderate", 
+                        "Processing and packaging capabilities": "Moderate"
+                    },
+                    resources: {
+                        "Business planning and strategy": "Extensive", 
+                        "Sustainable farming practices": "Some"
+                    }
+                },
+                { 
+                    name: "Steinbeck Country Produce", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Monterey County",
+                    needs: {
+                        "Transportation and delivery services": "High", 
+                        "Marketing and brand development": "Moderate"
+                    },
+                    resources: {
+                        "Production planning and crop scheduling": "Extensive", 
+                        "Quality control and grading": "Extensive"
+                    }
+                },
+                { 
+                    name: "Moss Landing Fisheries", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Monterey County",
+                    needs: {
+                        "Cold storage facility access": "High", 
+                        "E-commerce platform development": "High"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Quality control and grading": "Some"
+                    }
+                },
+                { 
+                    name: "Salad Bowl Inc", 
+                    type: "Food Processor", 
+                    county: "Monterey County",
+                    needs: {
+                        "Buyer relationship development": "High", 
+                        "Institutional sales": "Moderate"
+                    },
+                    resources: {
+                        "Processing and packaging capabilities": "Extensive", 
+                        "Food safety certification": "Extensive"
+                    }
+                },
+                { 
+                    name: "Central Coast Agricultural Services", 
+                    type: "For-profit Service Provider", 
+                    county: "Monterey County",
+                    needs: {
+                        "Partnership development": "Moderate"
+                    },
+                    resources: {
+                        "Business planning and strategy": "Extensive", 
+                        "Grant writing and fundraising": "Some"
+                    }
+                },
+                { 
+                    name: "Monterey County Farm Bureau", 
+                    type: "Nonprofit Organization", 
+                    county: "Monterey County",
+                    needs: {
+                        "Technology integration": "High"
+                    },
+                    resources: {
+                        "Partnership development": "Extensive", 
+                        "Grant writing and fundraising": "Some"
+                    }
+                },
+                { 
+                    name: "Carmel Valley Ranch Foods", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Monterey County",
+                    needs: {
+                        "Processing and packaging capabilities": "High", 
+                        "Marketing and brand development": "High"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Production planning and crop scheduling": "Some"
+                    }
+                },
+
+                // SANTA CRUZ COUNTY (15 orgs)
+                { 
+                    name: "Coastal Organic Growers", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Santa Cruz County",
+                    needs: {
+                        "Cold storage facility access": "High", 
+                        "Transportation and delivery services": "High", 
+                        "Processing and packaging capabilities": "Moderate"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Production planning and crop scheduling": "Some"
+                    }
+                },
+                { 
+                    name: "Regional Food Hub", 
+                    type: "Distributor", 
+                    county: "Santa Cruz County",
+                    needs: {
+                        "Technology integration": "High", 
+                        "Grant writing and fundraising": "High", 
+                        "Partnership development": "Moderate"
+                    },
+                    resources: {
+                        "Cold storage facility access": "Extensive", 
+                        "Transportation and delivery services": "Extensive", 
+                        "Distribution and logistics planning": "Extensive", 
+                        "Marketing and brand development": "Some"
+                    }
+                },
+                { 
+                    name: "Cabrillo College Farm Program", 
+                    type: "Educational Institution", 
+                    county: "Santa Cruz County",
+                    needs: {
+                        "Marketing and brand development": "Moderate", 
+                        "Buyer relationship development": "High"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Production planning and crop scheduling": "Some"
+                    }
+                },
+                { 
+                    name: "Farm Business Advisors", 
+                    type: "For-profit Service Provider", 
+                    county: "Santa Cruz County",
+                    needs: {
+                        "E-commerce platform development": "Moderate"
+                    },
+                    resources: {
+                        "Business planning and strategy": "Extensive", 
+                        "Grant writing and fundraising": "Some", 
+                        "Marketing and brand development": "Some"
+                    }
+                },
+                { 
+                    name: "Live Earth Farm", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Santa Cruz County",
+                    needs: {
+                        "E-commerce platform development": "High", 
+                        "Institutional sales": "High"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Quality control and grading": "Some"
+                    }
+                },
+                { 
+                    name: "Ecology Action", 
+                    type: "Nonprofit Organization", 
+                    county: "Santa Cruz County",
+                    needs: {
+                        "Cold storage facility access": "Moderate", 
+                        "Distribution and logistics planning": "Moderate"
+                    },
+                    resources: {
+                        "Grant writing and fundraising": "Extensive", 
+                        "Sustainable farming practices": "Extensive", 
+                        "Partnership development": "Some"
+                    }
+                },
+                { 
+                    name: "Santa Cruz Community Farmers Markets", 
+                    type: "Cooperative", 
+                    county: "Santa Cruz County",
+                    needs: {
+                        "Technology integration": "High", 
+                        "E-commerce platform development": "High"
+                    },
+                    resources: {
+                        "Marketing and brand development": "Extensive", 
+                        "Cooperative formation": "Extensive"
+                    }
+                },
+                { 
+                    name: "Watsonville Canning", 
+                    type: "Food Processor", 
+                    county: "Santa Cruz County",
+                    needs: {
+                        "Marketing and brand development": "Moderate", 
+                        "Buyer relationship development": "High"
+                    },
+                    resources: {
+                        "Processing and packaging capabilities": "Extensive", 
+                        "Food safety certification": "Extensive"
+                    }
+                },
+                { 
+                    name: "Swanton Berry Farm", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Santa Cruz County",
+                    needs: {
+                        "Transportation and delivery services": "Moderate", 
+                        "Cold storage facility access": "Moderate"
+                    },
+                    resources: {
+                        "Cooperative formation": "Extensive", 
+                        "Sustainable farming practices": "Extensive"
+                    }
+                },
+                { 
+                    name: "UC Santa Cruz Farm", 
+                    type: "Educational Institution", 
+                    county: "Santa Cruz County",
+                    needs: {
+                        "Processing and packaging capabilities": "Moderate", 
+                        "Distribution and logistics planning": "Moderate"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Business planning and strategy": "Some"
+                    }
+                },
+                { 
+                    name: "Community Bridges Homeless Services", 
+                    type: "Nonprofit Organization", 
+                    county: "Santa Cruz County",
+                    needs: {
+                        "Cold storage facility access": "High", 
+                        "Transportation and delivery services": "High"
+                    },
+                    resources: {
+                        "Grant writing and fundraising": "Extensive", 
+                        "Partnership development": "Some"
+                    }
+                },
+                { 
+                    name: "Aptos Seascape Produce", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Santa Cruz County",
+                    needs: {
+                        "Marketing and brand development": "High", 
+                        "E-commerce platform development": "High"
+                    },
+                    resources: {
+                        "Production planning and crop scheduling": "Extensive"
+                    }
+                },
+                { 
+                    name: "Santa Cruz Tech Hub", 
+                    type: "For-profit Service Provider", 
+                    county: "Santa Cruz County",
+                    needs: {
+                        "Partnership development": "Moderate"
+                    },
+                    resources: {
+                        "Technology integration": "Extensive", 
+                        "E-commerce platform development": "Extensive"
+                    }
+                },
+                { 
+                    name: "Felton Harvest Cooperative", 
+                    type: "Cooperative", 
+                    county: "Santa Cruz County",
+                    needs: {
+                        "Cold storage facility access": "High", 
+                        "Processing and packaging capabilities": "High"
+                    },
+                    resources: {
+                        "Cooperative formation": "Extensive", 
+                        "Partnership development": "Some"
+                    }
+                },
+                { 
+                    name: "Coastside Organics", 
+                    type: "Distributor", 
+                    county: "Santa Cruz County",
+                    needs: {
+                        "Technology integration": "Moderate", 
+                        "Business planning and strategy": "Moderate"
+                    },
+                    resources: {
+                        "Transportation and delivery services": "Extensive", 
+                        "Distribution and logistics planning": "Some"
+                    }
+                },
+
+                // SAN BENITO COUNTY (10 orgs)
+                { 
+                    name: "San Benito Livestock Ranch", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "San Benito County",
+                    needs: {
+                        "Processing and packaging capabilities": "High", 
+                        "Marketing and brand development": "High", 
+                        "Buyer relationship development": "Moderate"
+                    },
+                    resources: {
+                        "Production planning and crop scheduling": "Extensive"
+                    }
+                },
+                { 
+                    name: "Hollister Farmers Collective", 
+                    type: "Cooperative", 
+                    county: "San Benito County",
+                    needs: {
+                        "Cold storage facility access": "High", 
+                        "Transportation and delivery services": "High"
+                    },
+                    resources: {
+                        "Cooperative formation": "Extensive", 
+                        "Partnership development": "Some"
+                    }
+                },
+                { 
+                    name: "San Benito Foods", 
+                    type: "Food Processor", 
+                    county: "San Benito County",
+                    needs: {
+                        "Marketing and brand development": "High", 
+                        "Technology integration": "Moderate"
+                    },
+                    resources: {
+                        "Processing and packaging capabilities": "Extensive", 
+                        "Food safety certification": "Some"
+                    }
+                },
+                { 
+                    name: "Tres Pinos Growers", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "San Benito County",
+                    needs: {
+                        "E-commerce platform development": "High", 
+                        "Institutional sales": "High"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Production planning and crop scheduling": "Some"
+                    }
+                },
+                { 
+                    name: "San Benito Agricultural Alliance", 
+                    type: "Nonprofit Organization", 
+                    county: "San Benito County",
+                    needs: {
+                        "Cold storage facility access": "Moderate", 
+                        "Processing and packaging capabilities": "Moderate"
+                    },
+                    resources: {
+                        "Grant writing and fundraising": "Extensive", 
+                        "Partnership development": "Extensive"
+                    }
+                },
+                { 
+                    name: "Paicines Ranch", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "San Benito County",
+                    needs: {
+                        "Marketing and brand development": "High", 
+                        "Buyer relationship development": "High"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Quality control and grading": "Some"
+                    }
+                },
+                { 
+                    name: "Ridgemark Produce Distribution", 
+                    type: "Distributor", 
+                    county: "San Benito County",
+                    needs: {
+                        "Technology integration": "High", 
+                        "Grant writing and fundraising": "Moderate"
+                    },
+                    resources: {
+                        "Transportation and delivery services": "Extensive", 
+                        "Distribution and logistics planning": "Some"
+                    }
+                },
+                { 
+                    name: "San Benito Business Consultants", 
+                    type: "For-profit Service Provider", 
+                    county: "San Benito County",
+                    needs: {
+                        "Partnership development": "Moderate"
+                    },
+                    resources: {
+                        "Business planning and strategy": "Extensive"
+                    }
+                },
+                { 
+                    name: "Bolsa de Anza Farm", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "San Benito County",
+                    needs: {
+                        "Cold storage facility access": "High", 
+                        "Transportation and delivery services": "Moderate"
+                    },
+                    resources: {
+                        "Production planning and crop scheduling": "Extensive"
+                    }
+                },
+                { 
+                    name: "San Benito County Farm Bureau", 
+                    type: "Nonprofit Organization", 
+                    county: "San Benito County",
+                    needs: {
+                        "Technology integration": "High", 
+                        "E-commerce platform development": "High"
+                    },
+                    resources: {
+                        "Partnership development": "Extensive", 
+                        "Grant writing and fundraising": "Some"
+                    }
+                },
+
+                // SANTA BARBARA COUNTY (20 orgs)
+                { 
+                    name: "Santa Barbara Berry Farm", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Cold storage facility access": "High", 
+                        "Distribution and logistics planning": "Moderate", 
+                        "Institutional sales": "High"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Quality control and grading": "Extensive"
+                    }
+                },
+                { 
+                    name: "Central Coast Food Justice Network", 
+                    type: "Nonprofit Organization", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Cold storage facility access": "Moderate", 
+                        "Processing and packaging capabilities": "Moderate", 
+                        "Transportation and delivery services": "High"
+                    },
+                    resources: {
+                        "Grant writing and fundraising": "Extensive", 
+                        "Business planning and strategy": "Extensive", 
+                        "Partnership development": "Extensive", 
+                        "Marketing and brand development": "Some"
+                    }
+                },
+                { 
+                    name: "AgTech Solutions", 
+                    type: "For-profit Service Provider", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Partnership development": "Moderate", 
+                        "Grant writing and fundraising": "Moderate"
+                    },
+                    resources: {
+                        "Technology integration": "Extensive", 
+                        "Business planning and strategy": "Extensive"
+                    }
+                },
+                { 
+                    name: "Carpinteria Valley Growers", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "E-commerce platform development": "High", 
+                        "Marketing and brand development": "High"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Production planning and crop scheduling": "Some"
+                    }
+                },
+                { 
+                    name: "Foodbank of Santa Barbara County", 
+                    type: "Nonprofit Organization", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Processing and packaging capabilities": "Moderate", 
+                        "Technology integration": "Moderate"
+                    },
+                    resources: {
+                        "Grant writing and fundraising": "Extensive", 
+                        "Partnership development": "Extensive", 
+                        "Distribution and logistics planning": "Some"
+                    }
+                },
+                { 
+                    name: "Santa Maria Valley Processing", 
+                    type: "Food Processor", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Buyer relationship development": "High", 
+                        "Marketing and brand development": "Moderate"
+                    },
+                    resources: {
+                        "Processing and packaging capabilities": "Extensive", 
+                        "Food safety certification": "Extensive", 
+                        "Cold storage facility access": "Some"
+                    }
+                },
+                { 
+                    name: "Lompoc Agricultural Co-op", 
+                    type: "Cooperative", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Cold storage facility access": "High", 
+                        "Transportation and delivery services": "High"
+                    },
+                    resources: {
+                        "Cooperative formation": "Extensive", 
+                        "Partnership development": "Some"
+                    }
+                },
+                { 
+                    name: "UCSB Environmental Studies", 
+                    type: "Educational Institution", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Partnership development": "Moderate", 
+                        "Cold storage facility access": "Moderate"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Business planning and strategy": "Some"
+                    }
+                },
+                { 
+                    name: "Gaviota Coast Ranchers", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Processing and packaging capabilities": "High", 
+                        "Marketing and brand development": "High"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive"
+                    }
+                },
+                { 
+                    name: "Santa Ynez Valley Distributors", 
+                    type: "Distributor", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Technology integration": "High", 
+                        "Business planning and strategy": "Moderate"
+                    },
+                    resources: {
+                        "Transportation and delivery services": "Extensive", 
+                        "Distribution and logistics planning": "Extensive"
+                    }
+                },
+                { 
+                    name: "Goleta Valley Food Cooperative", 
+                    type: "Cooperative", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "E-commerce platform development": "High", 
+                        "Technology integration": "High"
+                    },
+                    resources: {
+                        "Cooperative formation": "Extensive", 
+                        "Marketing and brand development": "Some"
+                    }
+                },
+                { 
+                    name: "Santa Barbara County Agricultural Commissioner", 
+                    type: "Nonprofit Organization", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Technology integration": "Moderate"
+                    },
+                    resources: {
+                        "Food safety certification": "Extensive", 
+                        "Partnership development": "Extensive"
+                    }
+                },
+                { 
+                    name: "Isla Vista Food Cooperative", 
+                    type: "Cooperative", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Cold storage facility access": "Moderate", 
+                        "Processing and packaging capabilities": "Moderate"
+                    },
+                    resources: {
+                        "Cooperative formation": "Extensive", 
+                        "Partnership development": "Some"
+                    }
+                },
+                { 
+                    name: "Summerland Avocado Growers", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "E-commerce platform development": "High", 
+                        "Institutional sales": "High"
+                    },
+                    resources: {
+                        "Production planning and crop scheduling": "Extensive", 
+                        "Quality control and grading": "Some"
+                    }
+                },
+                { 
+                    name: "Santa Barbara Fish Market", 
+                    type: "Distributor", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Technology integration": "Moderate", 
+                        "Marketing and brand development": "Moderate"
+                    },
+                    resources: {
+                        "Cold storage facility access": "Extensive", 
+                        "Distribution and logistics planning": "Some"
+                    }
+                },
+                { 
+                    name: "Chumash Casino Farm-to-Table", 
+                    type: "For-profit Service Provider", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Partnership development": "High"
+                    },
+                    resources: {
+                        "Buyer relationship development": "Extensive", 
+                        "Marketing and brand development": "Some"
+                    }
+                },
+                { 
+                    name: "Buellton Berry Farms", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Cold storage facility access": "High", 
+                        "Transportation and delivery services": "Moderate"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive"
+                    }
+                },
+                { 
+                    name: "Santa Barbara Certified Farmers Market", 
+                    type: "Cooperative", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Technology integration": "High", 
+                        "E-commerce platform development": "High"
+                    },
+                    resources: {
+                        "Marketing and brand development": "Extensive", 
+                        "Cooperative formation": "Some"
+                    }
+                },
+                { 
+                    name: "Community Environmental Council", 
+                    type: "Nonprofit Organization", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Cold storage facility access": "Moderate", 
+                        "Processing and packaging capabilities": "Moderate"
+                    },
+                    resources: {
+                        "Grant writing and fundraising": "Extensive", 
+                        "Sustainable farming practices": "Extensive"
+                    }
+                },
+                { 
+                    name: "Santa Barbara Wine Country Provisions", 
+                    type: "Food Processor", 
+                    county: "Santa Barbara County",
+                    needs: {
+                        "Marketing and brand development": "High", 
+                        "Buyer relationship development": "Moderate"
+                    },
+                    resources: {
+                        "Processing and packaging capabilities": "Extensive", 
+                        "Quality control and grading": "Some"
+                    }
+                },
+
+                // SAN LUIS OBISPO COUNTY (20 orgs)
+                { 
+                    name: "Morro Bay Fishers Collective", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Cold storage facility access": "High", 
+                        "Marketing and brand development": "High", 
+                        "E-commerce platform development": "High"
+                    },
+                    resources: {
+                        "Quality control and grading": "Extensive", 
+                        "Sustainable farming practices": "Extensive"
+                    }
+                },
+                { 
+                    name: "Central Coast Cannery", 
+                    type: "Food Processor", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Buyer relationship development": "High", 
+                        "Distribution and logistics planning": "Moderate"
+                    },
+                    resources: {
+                        "Processing and packaging capabilities": "Extensive", 
+                        "Food safety certification": "Extensive"
+                    }
+                },
+                { 
+                    name: "Sustainable Agriculture Alliance", 
+                    type: "Nonprofit Organization", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Cold storage facility access": "Moderate", 
+                        "Distribution and logistics planning": "Moderate"
+                    },
+                    resources: {
+                        "Grant writing and fundraising": "Extensive", 
+                        "Business planning and strategy": "Extensive", 
+                        "Sustainable farming practices": "Some", 
+                        "Food safety certification": "Some"
+                    }
+                },
+                { 
+                    name: "Cal Poly Center for Sustainability", 
+                    type: "Educational Institution", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Partnership development": "High", 
+                        "Distribution and logistics planning": "Moderate"
+                    },
+                    resources: {
+                        "Business planning and strategy": "Extensive", 
+                        "Sustainable farming practices": "Extensive", 
+                        "Technology integration": "Some"
+                    }
+                },
+                { 
+                    name: "North County Food Co-op", 
+                    type: "Cooperative", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Transportation and delivery services": "High", 
+                        "Technology integration": "High"
+                    },
+                    resources: {
+                        "Partnership development": "Extensive", 
+                        "Cooperative formation": "Extensive"
+                    }
+                },
+                { 
+                    name: "Paso Robles Wine Country Ranches", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Processing and packaging capabilities": "High", 
+                        "Marketing and brand development": "High"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Production planning and crop scheduling": "Some"
+                    }
+                },
+                { 
+                    name: "SLO County Food System Coalition", 
+                    type: "Nonprofit Organization", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Technology integration": "Moderate", 
+                        "Cold storage facility access": "Moderate"
+                    },
+                    resources: {
+                        "Grant writing and fundraising": "Extensive", 
+                        "Partnership development": "Extensive"
+                    }
+                },
+                { 
+                    name: "Coastal Cold Storage SLO", 
+                    type: "For-profit Service Provider", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Marketing and brand development": "High", 
+                        "Partnership development": "High"
+                    },
+                    resources: {
+                        "Cold storage facility access": "Extensive"
+                    }
+                },
+                { 
+                    name: "Arroyo Grande Produce", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "E-commerce platform development": "High", 
+                        "Institutional sales": "High"
+                    },
+                    resources: {
+                        "Production planning and crop scheduling": "Extensive", 
+                        "Quality control and grading": "Some"
+                    }
+                },
+                { 
+                    name: "Pismo Pier Seafood", 
+                    type: "Distributor", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Technology integration": "Moderate", 
+                        "Marketing and brand development": "Moderate"
+                    },
+                    resources: {
+                        "Cold storage facility access": "Extensive", 
+                        "Transportation and delivery services": "Some", 
+                        "Distribution and logistics planning": "Some"
+                    }
+                },
+                { 
+                    name: "SLO Regional Food Bank", 
+                    type: "Nonprofit Organization", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Processing and packaging capabilities": "Moderate", 
+                        "Transportation and delivery services": "Moderate"
+                    },
+                    resources: {
+                        "Grant writing and fundraising": "Extensive", 
+                        "Partnership development": "Extensive"
+                    }
+                },
+                { 
+                    name: "Cayucos Creamery", 
+                    type: "Food Processor", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Marketing and brand development": "High", 
+                        "Buyer relationship development": "High"
+                    },
+                    resources: {
+                        "Processing and packaging capabilities": "Extensive", 
+                        "Food safety certification": "Some"
+                    }
+                },
+                { 
+                    name: "Edna Valley Growers", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Cold storage facility access": "High", 
+                        "Transportation and delivery services": "Moderate"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive"
+                    }
+                },
+                { 
+                    name: "Cal Poly Organic Farm", 
+                    type: "Educational Institution", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Processing and packaging capabilities": "Moderate", 
+                        "E-commerce platform development": "Moderate"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Production planning and crop scheduling": "Some"
+                    }
+                },
+                { 
+                    name: "Nipomo Mesa Produce Co-op", 
+                    type: "Cooperative", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Cold storage facility access": "High", 
+                        "E-commerce platform development": "High"
+                    },
+                    resources: {
+                        "Cooperative formation": "Extensive", 
+                        "Partnership development": "Some"
+                    }
+                },
+                { 
+                    name: "Avila Beach Fisheries", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Marketing and brand development": "High", 
+                        "E-commerce platform development": "High"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Quality control and grading": "Some"
+                    }
+                },
+                { 
+                    name: "SLO Food Ventures", 
+                    type: "For-profit Service Provider", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Partnership development": "Moderate"
+                    },
+                    resources: {
+                        "Business planning and strategy": "Extensive", 
+                        "Marketing and brand development": "Some"
+                    }
+                },
+                { 
+                    name: "Templeton Feed & Grain", 
+                    type: "Distributor", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Technology integration": "High", 
+                        "Business planning and strategy": "Moderate"
+                    },
+                    resources: {
+                        "Transportation and delivery services": "Extensive", 
+                        "Distribution and logistics planning": "Some"
+                    }
+                },
+                { 
+                    name: "Cambria Farmers Market Association", 
+                    type: "Cooperative", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "E-commerce platform development": "High", 
+                        "Technology integration": "High"
+                    },
+                    resources: {
+                        "Marketing and brand development": "Extensive", 
+                        "Cooperative formation": "Some"
+                    }
+                },
+                { 
+                    name: "Los Osos Community Services", 
+                    type: "Nonprofit Organization", 
+                    county: "San Luis Obispo County",
+                    needs: {
+                        "Cold storage facility access": "Moderate", 
+                        "Transportation and delivery services": "Moderate"
+                    },
+                    resources: {
+                        "Grant writing and fundraising": "Extensive", 
+                        "Partnership development": "Some"
+                    }
+                },
+
+                // VENTURA COUNTY (20 orgs)
+                { 
+                    name: "Coastal Cold Storage LLC", 
+                    type: "For-profit Service Provider", 
+                    county: "Ventura County",
+                    needs: {
+                        "Marketing and brand development": "High", 
+                        "Partnership development": "High"
+                    },
+                    resources: {
+                        "Cold storage facility access": "Extensive"
+                    }
+                },
+                { 
+                    name: "Oxnard Berry Growers", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Ventura County",
+                    needs: {
+                        "E-commerce platform development": "High", 
+                        "Institutional sales": "High"
+                    },
+                    resources: {
+                        "Production planning and crop scheduling": "Extensive", 
+                        "Sustainable farming practices": "Some"
+                    }
+                },
+                { 
+                    name: "Ventura County Farm Bureau", 
+                    type: "Nonprofit Organization", 
+                    county: "Ventura County",
+                    needs: {
+                        "Technology integration": "High", 
+                        "Cold storage facility access": "Moderate"
+                    },
+                    resources: {
+                        "Grant writing and fundraising": "Extensive", 
+                        "Partnership development": "Extensive"
+                    }
+                },
+                { 
+                    name: "Channel Islands Harbor Seafood", 
+                    type: "Distributor", 
+                    county: "Ventura County",
+                    needs: {
+                        "Marketing and brand development": "Moderate", 
+                        "Technology integration": "Moderate"
+                    },
+                    resources: {
+                        "Cold storage facility access": "Extensive", 
+                        "Transportation and delivery services": "Extensive", 
+                        "Distribution and logistics planning": "Some"
+                    }
+                },
+                { 
+                    name: "Camarillo Food Processing", 
+                    type: "Food Processor", 
+                    county: "Ventura County",
+                    needs: {
+                        "Buyer relationship development": "High", 
+                        "Marketing and brand development": "Moderate"
+                    },
+                    resources: {
+                        "Processing and packaging capabilities": "Extensive", 
+                        "Food safety certification": "Extensive"
+                    }
+                },
+                { 
+                    name: "Simi Valley Organic Collective", 
+                    type: "Cooperative", 
+                    county: "Ventura County",
+                    needs: {
+                        "Cold storage facility access": "High", 
+                        "Transportation and delivery services": "High"
+                    },
+                    resources: {
+                        "Cooperative formation": "Extensive", 
+                        "Partnership development": "Some"
+                    }
+                },
+                { 
+                    name: "Moorpark College Agriculture", 
+                    type: "Educational Institution", 
+                    county: "Ventura County",
+                    needs: {
+                        "Processing and packaging capabilities": "Moderate", 
+                        "Partnership development": "Moderate"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Business planning and strategy": "Some"
+                    }
+                },
+                { 
+                    name: "Thousand Oaks Food Cooperative", 
+                    type: "Cooperative", 
+                    county: "Ventura County",
+                    needs: {
+                        "E-commerce platform development": "High", 
+                        "Technology integration": "High"
+                    },
+                    resources: {
+                        "Marketing and brand development": "Extensive", 
+                        "Cooperative formation": "Some"
+                    }
+                },
+                { 
+                    name: "Santa Paula Citrus Growers", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Ventura County",
+                    needs: {
+                        "Processing and packaging capabilities": "High", 
+                        "Marketing and brand development": "High"
+                    },
+                    resources: {
+                        "Production planning and crop scheduling": "Extensive", 
+                        "Quality control and grading": "Some"
+                    }
+                },
+                { 
+                    name: "Ventura County Food Share", 
+                    type: "Nonprofit Organization", 
+                    county: "Ventura County",
+                    needs: {
+                        "Cold storage facility access": "Moderate", 
+                        "Transportation and delivery services": "Moderate"
+                    },
+                    resources: {
+                        "Grant writing and fundraising": "Extensive", 
+                        "Partnership development": "Extensive", 
+                        "Distribution and logistics planning": "Some"
+                    }
+                },
+                { 
+                    name: "Port Hueneme Fish Co", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Ventura County",
+                    needs: {
+                        "Cold storage facility access": "High", 
+                        "E-commerce platform development": "High"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Quality control and grading": "Some"
+                    }
+                },
+                { 
+                    name: "Ojai Valley Produce", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Ventura County",
+                    needs: {
+                        "Transportation and delivery services": "High", 
+                        "Marketing and brand development": "Moderate"
+                    },
+                    resources: {
+                        "Sustainable farming practices": "Extensive", 
+                        "Production planning and crop scheduling": "Some"
+                    }
+                },
+                { 
+                    name: "Ventura AgTech Consulting", 
+                    type: "For-profit Service Provider", 
+                    county: "Ventura County",
+                    needs: {
+                        "Partnership development": "Moderate"
+                    },
+                    resources: {
+                        "Technology integration": "Extensive", 
+                        "Business planning and strategy": "Some"
+                    }
+                },
+                { 
+                    name: "Fillmore Citrus Association", 
+                    type: "Cooperative", 
+                    county: "Ventura County",
+                    needs: {
+                        "Cold storage facility access": "High", 
+                        "E-commerce platform development": "High"
+                    },
+                    resources: {
+                        "Cooperative formation": "Extensive", 
+                        "Quality control and grading": "Some"
+                    }
+                },
+                { 
+                    name: "Ventura County Certified Farmers Markets", 
+                    type: "Cooperative", 
+                    county: "Ventura County",
+                    needs: {
+                        "Technology integration": "High", 
+                        "E-commerce platform development": "High"
+                    },
+                    resources: {
+                        "Marketing and brand development": "Extensive", 
+                        "Cooperative formation": "Some"
+                    }
+                },
+                { 
+                    name: "Piru Produce Distributors", 
+                    type: "Distributor", 
+                    county: "Ventura County",
+                    needs: {
+                        "Technology integration": "High", 
+                        "Business planning and strategy": "Moderate"
+                    },
+                    resources: {
+                        "Transportation and delivery services": "Extensive", 
+                        "Distribution and logistics planning": "Some"
+                    }
+                },
+                { 
+                    name: "FOOD Share Agricultural Program", 
+                    type: "Nonprofit Organization", 
+                    county: "Ventura County",
+                    needs: {
+                        "Processing and packaging capabilities": "Moderate", 
+                        "Cold storage facility access": "Moderate"
+                    },
+                    resources: {
+                        "Grant writing and fundraising": "Extensive", 
+                        "Partnership development": "Extensive"
+                    }
+                },
+                { 
+                    name: "Somis Avocado Growers", 
+                    type: "Farmer/Fisher/Food Producer", 
+                    county: "Ventura County",
+                    needs: {
+                        "E-commerce platform development": "High", 
+                        "Institutional sales": "High"
+                    },
+                    resources: {
+                        "Production planning and crop scheduling": "Extensive"
+                    }
+                },
+                { 
+                    name: "Channel Islands Cold Storage", 
+                    type: "For-profit Service Provider", 
+                    county: "Ventura County",
+                    needs: {
+                        "Marketing and brand development": "High", 
+                        "Partnership development": "High"
+                    },
+                    resources: {
+                        "Cold storage facility access": "Extensive"
+                    }
+                },
+                { 
+                    name: "Ventura Harbor Seafood Processors", 
+                    type: "Food Processor", 
+                    county: "Ventura County",
+                    needs: {
+                        "Marketing and brand development": "High", 
+                        "Buyer relationship development": "High"
+                    },
+                    resources: {
+                        "Processing and packaging capabilities": "Extensive", 
+                        "Food safety certification": "Some", 
+                        "Cold storage facility access": "Some"
+                    }
+                }
+            ];
+
+            orgs.forEach((org, index) => {
+                const location = generateLocation(org.county);
+                org.lat = location.lat;
+                org.lng = location.lng;
+                org.id = index + 1;
+                
+                org.topNeeds = Object.entries(org.needs)
+                    .filter(([_, level]) => level === "High" || level === "Moderate")
+                    .sort((a, b) => (a[1] === "High" ? -1 : 1))
+                    .slice(0, 3)
+                    .map(([key, _]) => key);
+                
+                org.topResources = Object.entries(org.resources)
+                    .sort((a, b) => (a[1] === "Extensive" ? -1 : 1))
+                    .slice(0, 3)
+                    .map(([key, _]) => key);
+            });
+
+            return orgs;
+        }
+
+        function calculateMatch(org1, org2) {
+            let score = 0;
+            let matches = [];
+            
+            Object.keys(org1.needs).forEach(need => {
+                if (org2.resources[need] && 
+                    (org1.needs[need] === "High" || org1.needs[need] === "Moderate")) {
+                    const weight = org1.needs[need] === "High" ? 3 : 2;
+                    const resourceLevel = org2.resources[need] === "Extensive" ? 3 : 2;
+                    score += weight * resourceLevel;
+                    matches.push({
+                        type: "need-resource",
+                        item: need,
+                        needLevel: org1.needs[need],
+                        resourceLevel: org2.resources[need]
+                    });
+                }
+            });
+            
+            if (org1.county === org2.county) score += 5;
+            return { score, matches };
+        }
+
+        function getMatches(orgId) {
+            const org = appState.organizations.find(o => o.id === orgId);
+            return appState.organizations
+                .filter(o => o.id !== orgId)
+                .map(o => ({ org: o, matchData: calculateMatch(org, o) }))
+                .filter(m => m.matchData.score > 0)
+                .sort((a, b) => b.matchData.score - a.matchData.score);
+        }
+
+        function initMap() {
+            require([
+                "esri/Map", 
+                "esri/views/MapView", 
+                "esri/Graphic", 
+                "esri/layers/GraphicsLayer",
+                "esri/geometry/Point", 
+                "esri/geometry/Polyline", 
+                "esri/geometry/Polygon",
+                "esri/symbols/SimpleMarkerSymbol", 
+                "esri/symbols/SimpleLineSymbol",
+                "esri/symbols/SimpleFillSymbol", 
+                "esri/PopupTemplate"
+            ], function(Map, MapView, Graphic, GraphicsLayer, Point, Polyline, Polygon,
+                       SimpleMarkerSymbol, SimpleLineSymbol, SimpleFillSymbol, PopupTemplate) {
+                
+                const map = new Map({ basemap: "streets-navigation-vector" });
+                appState.view = new MapView({
+                    container: "mapDiv",
+                    map: map,
+                    center: [-121.0, 35.5],
+                    zoom: 7
+                });
+
+                appState.layers.boundary = new GraphicsLayer();
+                appState.layers.network = new GraphicsLayer();
+                appState.layers.org = new GraphicsLayer();
+                
+                map.add(appState.layers.boundary);
+                map.add(appState.layers.network);
+                map.add(appState.layers.org);
+
+                appState.view.when(() => {
+                    fetch('https://raw.githubusercontent.com/pluricalifornia/cc-food-system-building-tool/main/data/CA_COUNTIES.json')
+                        .then(r => r.json())
+                        .then(data => {
+                            const central = [
+                                'Monterey', 
+                                'Santa Cruz', 
+                                'Santa Barbara', 
+                                'San Benito', 
+                                'Ventura', 
+                                'San Luis Obispo'
+                            ];
+                            
+                            data.features.forEach((f, i) => {
+                                const name = f.properties.NAME;
+                                if (!central.includes(name)) return;
+                                
+                                const coords = f.geometry.type === 'Polygon' ? 
+                                    f.geometry.coordinates[0] : f.geometry.coordinates[0][0];
+                                appState.countyBoundaries[name] = coords.map(c => [c[0], c[1]]);
+                                
+                                const geom = new Polygon({
+                                    rings: f.geometry.type === 'Polygon' ? 
+                                        f.geometry.coordinates : f.geometry.coordinates[0],
+                                    spatialReference: { wkid: 4326 }
+                                });
+                                
+                                const color = hexToRgb(countyColors[name] || '#cccccc');
+                                appState.layers.boundary.add(new Graphic({
+                                    geometry: geom,
+                                    symbol: new SimpleFillSymbol({
+                                        color: [...color, 0.2],
+                                        outline: { 
+                                            color: [...color, 0.8], 
+                                            width: 2 
+                                        }
+                                    })
+                                }));
+                            });
+                            
+                            appState.organizations = generateOrganizations();
+                            
+                            appState.organizations.forEach(org => {
+                                const graphic = new Graphic({
+                                    geometry: new Point({ 
+                                        longitude: org.lng, 
+                                        latitude: org.lat 
+                                    }),
+                                    symbol: new SimpleMarkerSymbol({
+                                        color: typeColors[org.type] || [128, 128, 128],
+                                        size: "10px",
+                                        outline: { 
+                                            color: [255, 255, 255], 
+                                            width: 2 
+                                        }
+                                    }),
+                                    attributes: org,
+                                    popupTemplate: new PopupTemplate({
+                                        title: org.name,
+                                        content: `<b>Type:</b> ${org.type}<br>
+                                                  <b>County:</b> ${org.county}<br>
+                                                  <b>Top Needs:</b><br>
+                                                  ${org.topNeeds.map(n => `• ${n}`).join('<br>')}`
+                                    })
+                                });
+                                appState.layers.org.add(graphic);
+                                org.graphic = graphic;
+                            });
+                            
+                            let total = 0;
+                            appState.organizations.forEach(org => { 
+                                total += getMatches(org.id).length; 
+                            });
+                            document.getElementById('totalMatches').textContent = total;
+                            
+                            let clickTimeout = null;
+                            appState.view.popup.autoOpenEnabled = false;
+                            
+                            appState.view.on("click", e => {
+                                e.stopPropagation();
+                                
+                                if (clickTimeout) {
+                                    clearTimeout(clickTimeout);
+                                }
+                                
+                                clickTimeout = setTimeout(() => {
+                                    appState.view.hitTest(e).then(r => {
+                                        if (r.results.length > 0 && 
+                                            r.results[0].graphic.attributes?.id) {
+                                            const clickedOrg = r.results[0].graphic.attributes;
+                                            showNetworkConnections(clickedOrg);
+                                            showOrgMatches(clickedOrg);
+                                        }
+                                    }).catch(err => {
+                                        console.error('Hit test error:', err);
+                                    });
+                                }, 100);
+                            });
+                        });
+                });
+            });
+        }
+
+        let currentSelectedOrgId = null;
+
+        function showNetworkConnections(org) {
+            require([
+                "esri/Graphic", 
+                "esri/geometry/Polyline", 
+                "esri/symbols/SimpleLineSymbol"
+            ], function(Graphic, Polyline, SimpleLineSymbol) {
+                try {
+                    // Don't prevent redrawing - just clear and redraw
+                    appState.layers.network.removeAll();
+                    currentSelectedOrgId = org.id;
+                    
+                    const matches = getMatches(org.id);
+                    
+                    matches.slice(0, 10).forEach(match => {
+                        let needResourceCount = 0;
+                        let resourceNeedCount = 0;
+                        
+                        match.matchData.matches.forEach(m => {
+                            if (m.type === "need-resource") needResourceCount++;
+                            else resourceNeedCount++;
+                        });
+                        
+                        let lineColor;
+                        if (needResourceCount > resourceNeedCount) {
+                            lineColor = [255, 140, 0];
+                        } else if (resourceNeedCount > needResourceCount) {
+                            lineColor = [34, 200, 34];
+                        } else {
+                            lineColor = [100, 150, 255];
+                        }
+                        
+                        const normalizedScore = Math.min(match.matchData.score / 40, 1);
+                        const opacity = 0.3 + (normalizedScore * 0.7);
+                        const lineWidth = 1 + (normalizedScore * 4);
+                        
+                        const lineGraphic = new Graphic({
+                            geometry: new Polyline({
+                                paths: [[org.lng, org.lat], [match.org.lng, match.org.lat]]
+                            }),
+                            symbol: new SimpleLineSymbol({
+                                color: [...lineColor, opacity],
+                                width: lineWidth,
+                                style: "solid"
+                            })
+                        });
+
+                        appState.layers.network.add(lineGraphic);
+                    });
+                } catch (error) {
+                    console.error('Error showing network connections:', error);
+                }
+            });
+        }
+
+        function toggleNetworkView() {
+            appState.showNetwork = !appState.showNetwork;
+            if (!appState.layers.network) return;
+            
+            appState.layers.network.removeAll();
+            if (appState.showNetwork) {
+                require([
+                    "esri/Graphic", 
+                    "esri/geometry/Polyline", 
+                    "esri/symbols/SimpleLineSymbol"
+                ], function(Graphic, Polyline, SimpleLineSymbol) {
+                    appState.organizations.forEach(org => {
+                        getMatches(org.id).slice(0, 3).forEach(m => {
+                            appState.layers.network.add(new Graphic({
+                                geometry: new Polyline({ 
+                                    paths: [[org.lng, org.lat], [m.org.lng, m.org.lat]] 
+                                }),
+                                symbol: new SimpleLineSymbol({ 
+                                    color: [100, 200, 255, 0.3], 
+                                    width: 2 
+                                })
+                            }));
+                        });
+                    });
+                });
+            }
+        }
+
+        function showOrgMatches(org) {
+            // Don't hide the main view - show details below the map
+            document.getElementById('detailsView').classList.remove('hidden');
+            const matches = getMatches(org.id);
+            
+            const unmetNeeds = [];
+            Object.entries(org.needs).forEach(([need, level]) => {
+                if (level === "High" || level === "Moderate") {
+                    const hasProvider = matches.some(m => 
+                        m.matchData.matches.some(match => 
+                            match.type === "need-resource" && match.item === need
+                        )
+                    );
+                    if (!hasProvider) {
+                        unmetNeeds.push({ need, level });
+                    }
+                }
+            });
+            
+            let html = `<div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div class="text-xs font-semibold text-green-600 uppercase tracking-wide mb-1">Selected Organization</div>
+                <h2 class="text-2xl font-bold mb-2">${org.name}</h2>
+                <p class="text-gray-600 mb-4">${org.type} • ${org.county}</p>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="font-semibold mb-3">Current Needs</h3>
+                        ${org.topNeeds.map(n => 
+                            `<div class="bg-orange-50 px-3 py-2 rounded mb-2">${n}</div>`
+                        ).join('')}
+                    </div>
+                    <div>
+                        <h3 class="font-semibold mb-3">Available Resources</h3>
+                        ${org.topResources.map(r => 
+                            `<div class="bg-green-50 px-3 py-2 rounded mb-2">${r}</div>`
+                        ).join('')}
+                    </div>
+                </div>
+            </div>`;
+            
+            if (unmetNeeds.length > 0) {
+                html += `<div class="bg-red-50 border-2 border-red-200 rounded-lg p-6 mb-6">
+                    <h3 class="text-xl font-bold text-red-900 mb-3">⚠️ Unmet Needs - Partnership Gaps</h3>
+                    <p class="text-sm text-red-800 mb-4">
+                        These needs have no matching partners in the network. 
+                        Consider new initiatives, programs, or partnerships to address these gaps:
+                    </p>
+                    <div class="space-y-2">
+                        ${unmetNeeds.map(({need, level}) => `
+                            <div class="bg-white rounded-lg p-3 flex items-start gap-3">
+                                <div class="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-semibold flex-shrink-0">
+                                    ${level.toUpperCase()}
+                                </div>
+                                <div class="flex-1">
+                                    <span class="font-medium text-gray-900">${need}</span>
+                                    <p class="text-xs text-gray-600 mt-1">
+                                        No organizations in the network currently provide this resource
+                                    </p>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <p class="text-sm text-yellow-900">
+                            <strong>Action Items:</strong> These gaps represent opportunities for 
+                            grant funding, new service providers, or collaborative programs to 
+                            strengthen the regional food system.
+                        </p>
+                    </div>
+                </div>`;
+            }
+            
+            html += `<h3 class="text-2xl font-bold mb-4">
+                Top ${Math.min(matches.length, 5)} Partnership Matches (shown as lines on map)
+            </h3>
+            <div class="space-y-4">`;
+            
+            matches.slice(0, 5).forEach(({org: m, matchData}) => {
+                html += `<div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="flex justify-between mb-4">
+                        <div>
+                            <h4 class="text-xl font-bold">${m.name}</h4>
+                            <p class="text-sm text-gray-600">${m.type} • ${m.county}</p>
+                        </div>
+                        <div class="bg-green-100 text-green-800 px-4 py-2 rounded-lg font-bold">
+                            ${matchData.score} pts
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h5 class="font-semibold text-gray-700 mb-3">Collaboration Opportunities:</h5>
+                        <div class="space-y-2">`;
+                
+                matchData.matches.slice(0, 5).forEach(match => {
+                    if (match.type === "need-resource") {
+                        html += `<div class="flex items-start gap-3 text-sm">
+                            <div class="bg-orange-100 text-orange-700 px-2 py-1 rounded text-xs font-semibold flex-shrink-0">
+                                SELECTED ORG NEEDS
+                            </div>
+                            <div class="flex-1">
+                                <span class="font-medium">${match.item}</span>
+                                <span class="text-gray-500"> — ${m.name} can provide </span>
+                                <span class="text-green-600 font-semibold">${match.resourceLevel}</span>
+                                <span class="text-gray-500"> level support</span>
+                            </div>
+                        </div>`;
+                    } else {
+                        html += `<div class="flex items-start gap-3 text-sm">
+                            <div class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-semibold flex-shrink-0">
+                                SELECTED ORG PROVIDES
+                            </div>
+                            <div class="flex-1">
+                                <span class="font-medium">${match.item}</span>
+                                <span class="text-gray-500"> — ${m.name} has </span>
+                                <span class="text-orange-600 font-semibold">${match.needLevel}</span>
+                                <span class="text-gray-500"> priority need</span>
+                            </div>
+                        </div>`;
+                    }
+                });
+                
+                html += `</div></div></div>`;
+            });
+            
+            html += '</div>';
+            document.getElementById('detailsContent').innerHTML = html;
+            
+            // Scroll to the details view
+            document.getElementById('detailsView').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function showMapView() {
+            document.getElementById('mainView').classList.remove('hidden');
+            document.getElementById('matchView').classList.add('hidden');
+            
+            // Clear the network lines when going back to map view
+            if (appState.layers.network) {
+                appState.layers.network.removeAll();
+                currentSelectedOrgId = null;
+            }
+        }
+
+        // Toggle instructions panel
+        function toggleInstructions() {
+            const panel = document.getElementById('instructionsPanel');
+            const icon = document.getElementById('instructionsToggleIcon');
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                icon.textContent = '▼';
+            } else {
+                panel.classList.add('hidden');
+                icon.textContent = '▶';
+            }
+        }
+
+        // Export menu toggles
+        function toggleExportMenu(menuType) {
+            hideExportMenus();
+            const menuId = menuType === 'orgExport' ? 'orgExportMenu' : 'matchExportMenu';
+            document.getElementById(menuId).classList.toggle('hidden');
+        }
+
+        function hideExportMenus() {
+            document.getElementById('orgExportMenu').classList.add('hidden');
+            document.getElementById('matchExportMenu').classList.add('hidden');
+        }
+
+        // Close menus when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.relative.inline-block')) {
+                hideExportMenus();
+            }
+        });
+
+        // JSON Export Functions
+        function exportOrganizationsJSON() {
+            const exportData = {
+                metadata: {
+                    title: "Central Coast Food System Organizations",
+                    description: "Organizations participating in the Central Coast Food System Network",
+                    exportDate: new Date().toISOString(),
+                    totalOrganizations: appState.organizations.length,
+                    counties: ["Monterey", "Santa Cruz", "San Benito", "Santa Barbara", "San Luis Obispo", "Ventura"],
+                    dataFields: {
+                        id: "Unique identifier for the organization",
+                        name: "Organization name",
+                        type: "Organization type (Farmer/Producer, Processor, Distributor, etc.)",
+                        county: "County where the organization is located",
+                        lat: "Latitude coordinate",
+                        lng: "Longitude coordinate",
+                        needs: "Object containing the organization's needs with priority levels (High, Moderate, Low)",
+                        resources: "Object containing the organization's available resources with availability levels (Extensive, Some)",
+                        topNeeds: "Array of the organization's top priority needs",
+                        topResources: "Array of the organization's main available resources"
+                    }
+                },
+                organizations: appState.organizations.map(org => ({
+                    id: org.id,
+                    name: org.name,
+                    type: org.type,
+                    county: org.county,
+                    lat: org.lat,
+                    lng: org.lng,
+                    needs: org.needs,
+                    resources: org.resources,
+                    topNeeds: org.topNeeds,
+                    topResources: org.topResources
+                }))
+            };
+            
+            const blob = new Blob(
+                [JSON.stringify(exportData, null, 2)], 
+                { type: 'application/json' }
+            );
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'food-system-organizations.json';
+            a.click();
+        }
+
+        function exportOrganizationsCSV() {
+            // Create CSV header
+            let csv = 'ID,Name,Type,County,Latitude,Longitude,Top Needs,Top Resources,All Needs (with levels),All Resources (with levels)\n';
+            
+            appState.organizations.forEach(org => {
+                const needsStr = Object.entries(org.needs).map(([k,v]) => `${k}: ${v}`).join('; ');
+                const resourcesStr = Object.entries(org.resources).map(([k,v]) => `${k}: ${v}`).join('; ');
+                
+                csv += `"${org.id}","${org.name}","${org.type}","${org.county}",${org.lat},${org.lng},"${org.topNeeds.join('; ')}","${org.topResources.join('; ')}","${needsStr}","${resourcesStr}"\n`;
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'food-system-organizations.csv';
+            a.click();
+        }
+
+        function exportMatchesJSON() {
+            const exportData = {
+                metadata: {
+                    title: "Central Coast Food System Partnership Matches",
+                    description: "Potential partnership matches between food system organizations based on complementary needs and resources",
+                    exportDate: new Date().toISOString(),
+                    totalOrganizations: appState.organizations.length,
+                    scoringSystem: {
+                        description: "Points are awarded when an organization's needs match another's resources",
+                        highNeed_extensiveResource: 10,
+                        highNeed_someResource: 7,
+                        moderateNeed_extensiveResource: 6,
+                        moderateNeed_someResource: 4,
+                        lowNeed_extensiveResource: 3,
+                        lowNeed_someResource: 2,
+                        sameCountyBonus: 5
+                    },
+                    dataFields: {
+                        organization: "The reference organization for which matches are calculated",
+                        topMatches: "Array of top 10 matching organizations with scores and match details"
+                    }
+                },
+                matches: appState.organizations.map(org => ({
+                    organization: { 
+                        id: org.id, 
+                        name: org.name, 
+                        type: org.type, 
+                        county: org.county 
+                    },
+                    topMatches: getMatches(org.id).slice(0, 10).map(m => ({
+                        matchedOrg: { 
+                            id: m.org.id, 
+                            name: m.org.name,
+                            type: m.org.type,
+                            county: m.org.county
+                        },
+                        matchScore: m.matchData.score,
+                        matchDetails: m.matchData.matches.map(match => ({
+                            type: match.type === 'need-resource' ? 'Selected org needs, partner provides' : 'Selected org provides, partner needs',
+                            item: match.item,
+                            level: match.type === 'need-resource' ? 
+                                `Need: ${match.needLevel}, Resource: ${match.resourceLevel}` :
+                                `Resource: ${match.resourceLevel}, Need: ${match.needLevel}`
+                        }))
+                    }))
+                }))
+            };
+            
+            const blob = new Blob(
+                [JSON.stringify(exportData, null, 2)], 
+                { type: 'application/json' }
+            );
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'food-system-matches.json';
+            a.click();
+        }
+
+        function exportMatchesCSV() {
+            // Create CSV with flattened match data
+            let csv = 'Organization ID,Organization Name,Organization Type,Organization County,Match Rank,Matched Org ID,Matched Org Name,Matched Org Type,Matched Org County,Match Score,Same County\n';
+            
+            appState.organizations.forEach(org => {
+                const matches = getMatches(org.id).slice(0, 10);
+                matches.forEach((m, index) => {
+                    const sameCounty = org.county === m.org.county ? 'Yes' : 'No';
+                    csv += `"${org.id}","${org.name}","${org.type}","${org.county}",${index + 1},"${m.org.id}","${m.org.name}","${m.org.type}","${m.org.county}",${m.matchData.score},"${sameCounty}"\n`;
+                });
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'food-system-matches.csv';
+            a.click();
+        }
+
+        window.addEventListener('load', initMap);
+    </script>
+</body>
+</html>
